@@ -1,0 +1,4 @@
+build/
+build-fresh/
+*.zip
+.DS_Store
