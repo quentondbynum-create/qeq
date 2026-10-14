@@ -95,6 +95,17 @@ public:
     // UI curve display; the waveshaper is nonlinear and excluded).
     float getMagnitudeResponseDb (float frequencyHz) const;
 
+    // Per-band linear magnitude response in dB (band 0..3 = low shelf,
+    // mid1 peak, mid2 peak, high shelf). Used by the UI curve display.
+    float getBandMagnitudeResponseDb (int bandIndex, float frequencyHz) const;
+
+    // ---- spectrum analyzer feed (UI only) ----
+    // processBlock pushes mono-summed input here; the editor's display
+    // component pulls it on a timer and runs an FFT. Lock-free.
+    static constexpr int analyserFifoSize = 2048;
+    juce::AbstractFifo analyserFifo { analyserFifoSize };
+    float analyserFifoData[analyserFifoSize] = {};
+
 private:
     juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 

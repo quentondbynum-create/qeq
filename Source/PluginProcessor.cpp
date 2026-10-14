@@ -108,6 +108,23 @@ void QEQProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuf
 
     updateFilters();
 
+    // Feed the spectrum analyzer FIFO with mono-summed input (pre-EQ).
+    {
+        const int numSamples = buffer.getNumSamples();
+        const float* left  = buffer.getReadPointer (0);
+        const float* right = buffer.getNumChannels() > 1 ? buffer.getReadPointer (1) : left;
+
+        int start1, size1, start2, size2;
+        analyserFifo.prepareToWrite (numSamples, start1, size1, start2, size2);
+
+        for (int i = 0; i < size1; ++i)
+            analyserFifoData[start1 + i] = 0.5f * (left[i] + right[i]);
+        for (int i = 0; i < size2; ++i)
+            analyserFifoData[start2 + i] = 0.5f * (left[size1 + i] + right[size1 + i]);
+
+        analyserFifo.finishedWrite (size1 + size2);
+    }
+
     juce::dsp::AudioBlock<float> block (buffer);
     juce::dsp::ProcessContextReplacing<float> context (block);
     chain.process (context);
@@ -250,6 +267,49 @@ float QEQProcessor::getMagnitudeResponseDb (float frequencyHz) const
         sr, 4000.0, shelfQ, juce::Decibels::decibelsToGain (tilt)));
 
     return totalDb;
+}
+
+float QEQProcessor::getBandMagnitudeResponseDb (int bandIndex, float frequencyHz) const
+{
+    const double sr = lastSampleRate;
+    const float f = juce::jlimit (20.0f, 20000.0f, frequencyHz);
+    const float shelfQ = 0.7071f;
+
+    juce::dsp::IIR::Coefficients<float>::Ptr c;
+
+    switch (bandIndex)
+    {
+        case 0:
+            c = juce::dsp::IIR::Coefficients<float>::makeLowShelf (
+                sr, apvts.getRawParameterValue (kLowFreq)->load(), shelfQ,
+                juce::Decibels::decibelsToGain (
+                    apvts.getRawParameterValue (kLowGain)->load()));
+            break;
+        case 1:
+            c = juce::dsp::IIR::Coefficients<float>::makePeakFilter (
+                sr, apvts.getRawParameterValue (kMid1Freq)->load(),
+                apvts.getRawParameterValue (kMid1Q)->load(),
+                juce::Decibels::decibelsToGain (
+                    apvts.getRawParameterValue (kMid1Gain)->load()));
+            break;
+        case 2:
+            c = juce::dsp::IIR::Coefficients<float>::makePeakFilter (
+                sr, apvts.getRawParameterValue (kMid2Freq)->load(),
+                apvts.getRawParameterValue (kMid2Q)->load(),
+                juce::Decibels::decibelsToGain (
+                    apvts.getRawParameterValue (kMid2Gain)->load()));
+            break;
+        case 3:
+            c = juce::dsp::IIR::Coefficients<float>::makeHighShelf (
+                sr, apvts.getRawParameterValue (kHighFreq)->load(), shelfQ,
+                juce::Decibels::decibelsToGain (
+                    apvts.getRawParameterValue (kHighGain)->load()));
+            break;
+        default:
+            return 0.0f;
+    }
+
+    return biquadMagnitudeDb (c->coefficients, f, sr);
 }
 
 //==============================================================================
