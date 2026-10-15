@@ -110,7 +110,12 @@ void QEQProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuf
 
     updateFilters();
 
-    // Feed the spectrum analyzer FIFO with mono-summed input (pre-EQ).
+    juce::dsp::AudioBlock<float> block (buffer);
+    juce::dsp::ProcessContextReplacing<float> context (block);
+    chain.process (context);
+
+    // Feed the spectrum analyzer FIFO with mono-summed POST-EQ output, like
+    // FabFilter's default Post analyzer mode — the display reflects the EQ.
     {
         const int numSamples = buffer.getNumSamples();
         const float* left  = buffer.getReadPointer (0);
@@ -126,10 +131,6 @@ void QEQProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuf
 
         analyserFifo.finishedWrite (size1 + size2);
     }
-
-    juce::dsp::AudioBlock<float> block (buffer);
-    juce::dsp::ProcessContextReplacing<float> context (block);
-    chain.process (context);
 }
 
 //==============================================================================
@@ -306,19 +307,20 @@ void QEQProcessor::updateFilters()
 }
 
 //==============================================================================
-// |H(e^jw)| for a JUCE biquad: coefficients are {b0,b1,b2,a0,a1,a2}, a0 == 1.
+// |H(e^jw)| for a JUCE biquad. JUCE normalises a0 to 1 and stores the
+// coefficients as {b0, b1, b2, a1, a2} (5 elements, a0 omitted).
 static float biquadMagnitudeDb (const juce::Array<float>& co, double frequencyHz, double sampleRate)
 {
-    jassert (co.size() >= 6);
+    jassert (co.size() >= 5);
     const double b0 = co[0], b1 = co[1], b2 = co[2];
-    const double a0 = co[3], a1 = co[4], a2 = co[5];
+    const double a1 = co[3], a2 = co[4];
 
     const double w = 2.0 * juce::MathConstants<double>::pi * frequencyHz / sampleRate;
     const std::complex<double> z1 = std::exp (std::complex<double> (0.0, -w));
     const std::complex<double> z2 = z1 * z1;
 
     const std::complex<double> num = b0 + b1 * z1 + b2 * z2;
-    const std::complex<double> den = a0 + a1 * z1 + a2 * z2;
+    const std::complex<double> den = 1.0 + a1 * z1 + a2 * z2;
 
     const double mag = std::abs (num) / juce::jmax (1.0e-12, std::abs (den));
     return juce::Decibels::gainToDecibels (mag);

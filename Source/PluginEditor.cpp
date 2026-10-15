@@ -1,5 +1,6 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include <BinaryData.h>
 
 namespace
 {
@@ -22,7 +23,7 @@ namespace
     constexpr float kHandleRadius = 11.0f;
     constexpr float kGrabRadius   = 15.0f;
 
-    constexpr float kAnalyserFloorDb = -66.0f;
+    constexpr float kAnalyserFloorDb = -60.0f;
     constexpr float kAnalyserCeilDb  = 0.0f;
 
     juce::String freqLabel (float f)
@@ -102,6 +103,8 @@ const QEQFactoryPreset QEQEditor::factoryPresets[8] =
 EQDisplay::EQDisplay (QEQProcessor& p) : processor (p)
 {
     setMouseCursor (juce::MouseCursor::NormalCursor);
+    // Start at the floor so the analyzer doesn't flash full-scale on open.
+    std::fill (std::begin (scopeLevels), std::end (scopeLevels), kAnalyserFloorDb);
     startTimerHz (30);
 }
 
@@ -284,21 +287,32 @@ void EQDisplay::updateSpectrum()
     if (! ringFilled)
         return;
 
-    // Copy oldest -> newest into the FFT work buffer (real in even slots).
+    // Window the real samples FIRST, then interleave for the FFT.
+    // (The windowing table must be applied to the real signal — applying it
+    // to the interleaved complex work buffer windows the wrong samples.)
+    float windowed[fftSize];
+    for (int i = 0; i < fftSize; ++i)
+        windowed[i] = ring[(ringWritePos + i) % fftSize];
+
+    window.multiplyWithWindowingTable (windowed, (size_t) fftSize);
+
     for (int i = 0; i < fftSize; ++i)
     {
-        const int idx = (ringWritePos + i) % fftSize;
-        fftWork[2 * i]     = ring[idx];
+        fftWork[2 * i]     = windowed[i];
         fftWork[2 * i + 1] = 0.0f;
     }
 
-    window.multiplyWithWindowingTable (fftWork, (size_t) fftSize);
     fft.performFrequencyOnlyForwardTransform (fftWork);
+
+    // |X[k]| is unnormalised: a full-scale sine with a Hann window reads N/4
+    // in its peak bin (x2 single-sided, x0.5 Hann coherent gain), so scale by
+    // 4/N to make 0 dBFS read 0 dB.
+    constexpr float magScale = 4.0f / (float) fftSize;
 
     for (int i = 0; i < fftSize / 2; ++i)
     {
         const float db = juce::jlimit (kAnalyserFloorDb, kAnalyserCeilDb,
-            20.0f * std::log10 (fftWork[i] / (float) fftSize + 1.0e-9f));
+            20.0f * std::log10 (fftWork[i] * magScale + 1.0e-9f));
 
         // Instant attack, ~90 dB/s release.
         if (db > scopeLevels[i])
@@ -378,7 +392,7 @@ void EQDisplay::paint (juce::Graphics& g)
     }
 
     //---- EQ curves ----
-    constexpr int numPts = 120;
+    constexpr int numPts = 160;
     const float logMin = std::log10 (kMinFreq), logMax = std::log10 (kMaxFreq);
 
     auto buildCurve = [&] (std::function<float (float)> dbAt)
@@ -605,6 +619,9 @@ QEQEditor::QEQEditor (QEQProcessor& p)
     : AudioProcessorEditor (p), processor (p), display (p)
 {
     setSize (900, 620);
+
+    logoImage = juce::ImageCache::getFromMemory (BinaryData::headroomlogo_png,
+                                                 BinaryData::headroomlogo_pngSize);
 
     //---- top bar ----
     titleLabel.setText ("QEQ", juce::dontSendNotification);
@@ -1141,6 +1158,11 @@ void QEQEditor::paint (juce::Graphics& g)
 {
     g.fillAll (kBg);
 
+    // Headroom Audio brand mark — small and subtle, left of the title.
+    if (logoImage.isValid())
+        g.drawImageWithin (logoImage, 14, 12, 32, 32,
+                           juce::RectanglePlacement::centred, false);
+
     // Signature section panel (bottom-right).
     auto sigArea = juce::Rectangle<int> (476, 462, 900 - 476 - 8, 620 - 462 - 8);
     g.setColour (kSigPanel);
@@ -1156,8 +1178,8 @@ void QEQEditor::paint (juce::Graphics& g)
 void QEQEditor::resized()
 {
     //---- top bar (0..56) ----
-    titleLabel.setBounds (16, 8, 76, 36);
-    brandLabel.setBounds (92, 24, 140, 18);
+    titleLabel.setBounds (52, 8, 76, 36);
+    brandLabel.setBounds (128, 24, 140, 18);
 
     prevPresetBtn.setBounds (246, 14, 30, 28);
     presetBox.setBounds (280, 12, 224, 32);

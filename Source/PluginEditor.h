@@ -206,6 +206,7 @@ private:
 
     // Top bar.
     juce::Label titleLabel, brandLabel;
+    juce::Image logoImage;
     juce::ComboBox presetBox;
     juce::TextButton prevPresetBtn, nextPresetBtn, savePresetBtn, heartBtn;
     juce::String currentPresetName;
