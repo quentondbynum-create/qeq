@@ -6,7 +6,6 @@ namespace
 {
     const juce::Colour kBg        = juce::Colour (0xff111116);
     const juce::Colour kPanel     = juce::Colour (0xff1A1A20);
-    const juce::Colour kSigPanel  = juce::Colour (0xff20141A); // signature tint
     const juce::Colour kGrid      = juce::Colour (0xff2A2A32);
     const juce::Colour kText      = juce::Colour (0xffE8E8EC);
     const juce::Colour kTextDim   = juce::Colour (0xff88888F);
@@ -16,10 +15,10 @@ namespace
     const juce::Colour kSoloOn    = juce::Colour (0xffFFD500);
     const juce::Colour kBypassOn  = juce::Colour (0xffFF6B35);
     const juce::Colour kHeartOn   = juce::Colour (0xffFF3B5C);
+    const juce::Colour kDynOn     = juce::Colour (0xff4CC9F0);
 
     constexpr float kMinFreq = 20.0f;
     constexpr float kMaxFreq = 20000.0f;
-    constexpr float kMaxDb   = 15.0f;
     constexpr float kHandleRadius = 11.0f;
     constexpr float kGrabRadius   = 15.0f;
 
@@ -39,71 +38,94 @@ namespace
 }
 
 //==============================================================================
-// Factory presets.
+// Factory presets (8 bands each).
 const QEQFactoryPreset QEQEditor::factoryPresets[8] =
 {
     { "Init",
-      { 120.0f, 500.0f, 3000.0f, 10000.0f },
-      { 0.0f, 0.0f, 0.0f, 0.0f },
-      { 0.71f, 1.0f, 1.0f, 0.71f },
-      { QEQLowShelf, QEQBell, QEQBell, QEQHighShelf },
-      0.0f, 0.0f, 0.0f },
+      { 80.0f, 200.0f, 600.0f, 1500.0f, 4000.0f, 9000.0f, 12000.0f, 16000.0f },
+      { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
+      { 0.71f, 0.71f, 1.0f, 1.0f, 1.0f, 1.0f, 0.71f, 0.71f },
+      { QEQHighPass, QEQLowShelf, QEQBell, QEQBell,
+        QEQBell, QEQBell, QEQHighShelf, QEQLowPass },
+      { 0, 0, 0, 0, 0, 0, 0, 0 },
+      { 0, 0, 0, 0, 0, 0, 0, 0 },
+      0.0f, 0.0f, 0.0f, 100.0f },
 
     { "Vocal Shine",
-      { 80.0f, 250.0f, 3000.0f, 10000.0f },
-      { 0.0f, -2.0f, 3.0f, 5.0f },
-      { 0.71f, 1.0f, 1.0f, 0.71f },
-      { QEQHighPass, QEQBell, QEQBell, QEQHighShelf },
-      8.0f, 0.0f, 0.0f },
+      { 80.0f, 250.0f, 900.0f, 3000.0f, 5000.0f, 8000.0f, 10000.0f, 16000.0f },
+      { 0.0f, 0.0f, -2.0f, 3.0f, 0.0f, 0.0f, 5.0f, 0.0f },
+      { 0.71f, 0.71f, 1.0f, 1.0f, 1.0f, 1.0f, 0.71f, 0.71f },
+      { QEQHighPass, QEQLowShelf, QEQBell, QEQBell,
+        QEQBell, QEQBell, QEQHighShelf, QEQLowPass },
+      { 0, 0, 0, 0, 0, 0, 0, 0 },
+      { 0, 0, 0, 0, 0, 0, 0, 0 },
+      8.0f, 0.0f, 0.0f, 100.0f },
 
     { "Bass Punch",
-      { 120.0f, 200.0f, 2500.0f, 8000.0f },
-      { 5.0f, -2.0f, 2.0f, 0.0f },
-      { 0.71f, 1.0f, 1.0f, 0.71f },
-      { QEQLowShelf, QEQBell, QEQBell, QEQHighShelf },
-      15.0f, 0.0f, 0.0f },
+      { 60.0f, 120.0f, 200.0f, 800.0f, 2500.0f, 6000.0f, 9000.0f, 16000.0f },
+      { 0.0f, 5.0f, -2.0f, 0.0f, 2.0f, 0.0f, 0.0f, 0.0f },
+      { 0.71f, 0.71f, 1.0f, 1.0f, 1.0f, 1.0f, 0.71f, 0.71f },
+      { QEQHighPass, QEQLowShelf, QEQBell, QEQBell,
+        QEQBell, QEQBell, QEQHighShelf, QEQLowPass },
+      { 0, 0, 0, 0, 0, 0, 0, 0 },
+      { 0, 0, 0, 0, 0, 0, 0, 0 },
+      15.0f, 0.0f, 0.0f, 100.0f },
 
     { "Telephone",
-      { 400.0f, 1000.0f, 2000.0f, 3400.0f },
-      { 0.0f, 5.0f, 3.0f, 0.0f },
-      { 0.71f, 1.5f, 2.0f, 0.71f },
-      { QEQHighPass, QEQBell, QEQBell, QEQLowPass },
-      20.0f, 0.0f, 0.0f },
+      { 300.0f, 400.0f, 1000.0f, 2000.0f, 3000.0f, 3400.0f, 8000.0f, 16000.0f },
+      { 0.0f, 0.0f, 5.0f, 3.0f, 0.0f, 0.0f, 0.0f, 0.0f },
+      { 0.71f, 0.71f, 1.5f, 2.0f, 1.0f, 0.71f, 0.71f, 0.71f },
+      { QEQHighPass, QEQLowShelf, QEQBell, QEQBell,
+        QEQBell, QEQBell, QEQHighShelf, QEQLowPass },
+      { 1, 0, 0, 0, 0, 0, 1, 0 },
+      { 0, 0, 0, 0, 0, 0, 0, 0 },
+      20.0f, 0.0f, 0.0f, 100.0f },
 
     { "Air Lift",
-      { 120.0f, 500.0f, 3000.0f, 12000.0f },
-      { 0.0f, 0.0f, 0.0f, 7.0f },
-      { 0.71f, 1.0f, 1.0f, 0.71f },
-      { QEQLowShelf, QEQBell, QEQBell, QEQHighShelf },
-      0.0f, 1.0f, 0.0f },
+      { 80.0f, 200.0f, 600.0f, 1500.0f, 4000.0f, 9000.0f, 12000.0f, 16000.0f },
+      { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 7.0f, 0.0f },
+      { 0.71f, 0.71f, 1.0f, 1.0f, 1.0f, 1.0f, 0.71f, 0.71f },
+      { QEQHighPass, QEQLowShelf, QEQBell, QEQBell,
+        QEQBell, QEQBell, QEQHighShelf, QEQLowPass },
+      { 0, 0, 0, 0, 0, 0, 0, 0 },
+      { 0, 0, 0, 0, 0, 0, 0, 0 },
+      0.0f, 1.0f, 0.0f, 100.0f },
 
     { "Mud Remover",
-      { 90.0f, 280.0f, 500.0f, 10000.0f },
-      { 0.0f, -4.0f, -2.0f, 0.0f },
-      { 0.71f, 1.4f, 1.0f, 0.71f },
-      { QEQHighPass, QEQBell, QEQBell, QEQHighShelf },
-      0.0f, 0.0f, 0.0f },
+      { 90.0f, 200.0f, 280.0f, 500.0f, 2000.0f, 6000.0f, 10000.0f, 16000.0f },
+      { 0.0f, 0.0f, -4.0f, -2.0f, 0.0f, 0.0f, 0.0f, 0.0f },
+      { 0.71f, 0.71f, 1.4f, 1.0f, 1.0f, 1.0f, 0.71f, 0.71f },
+      { QEQHighPass, QEQLowShelf, QEQBell, QEQBell,
+        QEQBell, QEQBell, QEQHighShelf, QEQLowPass },
+      { 0, 0, 0, 0, 0, 0, 0, 0 },
+      { 0, 0, 0, 0, 0, 0, 0, 0 },
+      0.0f, 0.0f, 0.0f, 100.0f },
 
     { "Warmth",
-      { 150.0f, 400.0f, 3000.0f, 10000.0f },
-      { 2.5f, 1.0f, 0.0f, 0.0f },
-      { 0.71f, 0.8f, 1.0f, 0.71f },
-      { QEQLowShelf, QEQBell, QEQBell, QEQHighShelf },
-      30.0f, -2.5f, 0.0f },
+      { 80.0f, 150.0f, 400.0f, 1500.0f, 4000.0f, 9000.0f, 12000.0f, 16000.0f },
+      { 0.0f, 2.5f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
+      { 0.71f, 0.71f, 0.8f, 1.0f, 1.0f, 1.0f, 0.71f, 0.71f },
+      { QEQHighPass, QEQLowShelf, QEQBell, QEQBell,
+        QEQBell, QEQBell, QEQHighShelf, QEQLowPass },
+      { 0, 0, 0, 0, 0, 0, 0, 0 },
+      { 0, 0, 0, 0, 0, 0, 0, 0 },
+      30.0f, -2.5f, 0.0f, 100.0f },
 
     { "Smile Curve",
-      { 100.0f, 1000.0f, 3000.0f, 10000.0f },
-      { 4.0f, -3.0f, 0.0f, 4.0f },
-      { 0.71f, 0.7f, 1.0f, 0.71f },
-      { QEQLowShelf, QEQBell, QEQBell, QEQHighShelf },
-      5.0f, 0.0f, 0.0f },
+      { 80.0f, 100.0f, 600.0f, 1000.0f, 3000.0f, 9000.0f, 10000.0f, 16000.0f },
+      { 0.0f, 4.0f, 0.0f, -3.0f, 0.0f, 0.0f, 4.0f, 0.0f },
+      { 0.71f, 0.71f, 1.0f, 0.7f, 1.0f, 1.0f, 0.71f, 0.71f },
+      { QEQHighPass, QEQLowShelf, QEQBell, QEQBell,
+        QEQBell, QEQBell, QEQHighShelf, QEQLowPass },
+      { 0, 0, 0, 0, 0, 0, 0, 0 },
+      { 0, 0, 0, 0, 0, 0, 0, 0 },
+      5.0f, 0.0f, 0.0f, 100.0f },
 };
 
 //==============================================================================
 EQDisplay::EQDisplay (QEQProcessor& p) : processor (p)
 {
     setMouseCursor (juce::MouseCursor::NormalCursor);
-    // Start at the floor so the analyzer doesn't flash full-scale on open.
     std::fill (std::begin (scopeLevels), std::end (scopeLevels), kAnalyserFloorDb);
     startTimerHz (30);
 }
@@ -115,7 +137,6 @@ EQDisplay::~EQDisplay()
 
 void EQDisplay::resized()
 {
-    // Margins: left for dB labels, bottom for freq labels.
     plotArea = getLocalBounds().toFloat().reduced (6.0f);
     plotArea.removeFromLeft (40.0f);
     plotArea.removeFromRight (10.0f);
@@ -141,17 +162,17 @@ float EQDisplay::xToFreq (float x) const
 
 float EQDisplay::dbToY (float db) const
 {
-    const float t = juce::jlimit (-kMaxDb, kMaxDb, db) / kMaxDb; // -1..1
+    const float t = juce::jlimit (-displayRangeDb, displayRangeDb, db) / displayRangeDb;
     return plotArea.getCentreY() - t * (plotArea.getHeight() / 2.0f);
 }
 
 float EQDisplay::yToDb (float y) const
 {
     const float t = (plotArea.getCentreY() - y) / (plotArea.getHeight() / 2.0f);
-    return juce::jlimit (-kMaxDb, kMaxDb, t * kMaxDb);
+    return juce::jlimit (-displayRangeDb, displayRangeDb, t * displayRangeDb);
 }
 
-juce::AudioParameterFloat* EQDisplay::getParam (const char* paramId) const
+juce::AudioParameterFloat* EQDisplay::getFloatParam (const juce::String& paramId) const
 {
     return dynamic_cast<juce::AudioParameterFloat*> (
         processor.apvts.getParameter (paramId));
@@ -159,21 +180,21 @@ juce::AudioParameterFloat* EQDisplay::getParam (const char* paramId) const
 
 float EQDisplay::getBandFreq (int band) const
 {
-    if (auto* p = getParam (getQEQBandInfo (band).freqParam))
+    if (auto* p = getFloatParam (getQEQBandInfo (band).ids.freq))
         return p->get();
     return 1000.0f;
 }
 
 float EQDisplay::getBandGain (int band) const
 {
-    if (auto* p = getParam (getQEQBandInfo (band).gainParam))
+    if (auto* p = getFloatParam (getQEQBandInfo (band).ids.gain))
         return p->get();
     return 0.0f;
 }
 
-void EQDisplay::setParamValue (const char* paramId, float value)
+void EQDisplay::setFloatParamValue (const juce::String& paramId, float value)
 {
-    if (auto* p = getParam (paramId))
+    if (auto* p = getFloatParam (paramId))
     {
         const auto& range = p->getNormalisableRange();
         const float clamped = juce::jlimit (range.start, range.end, value);
@@ -181,14 +202,14 @@ void EQDisplay::setParamValue (const char* paramId, float value)
     }
 }
 
-void EQDisplay::setChoiceParam (const char* paramId, int choiceIndex)
+void EQDisplay::setChoiceParam (const juce::String& paramId, int choiceIndex)
 {
     if (auto* p = dynamic_cast<juce::AudioParameterChoice*> (
             processor.apvts.getParameter (paramId)))
         p->setValueNotifyingHost (p->convertTo0to1 ((float) choiceIndex));
 }
 
-void EQDisplay::setBoolParam (const char* paramId, bool value)
+void EQDisplay::setBoolParam (const juce::String& paramId, bool value)
 {
     if (auto* p = dynamic_cast<juce::AudioParameterBool*> (
             processor.apvts.getParameter (paramId)))
@@ -197,7 +218,7 @@ void EQDisplay::setBoolParam (const char* paramId, bool value)
 
 int EQDisplay::bandAtPosition (juce::Point<float> pos) const
 {
-    for (int b = 0; b < 4; ++b)
+    for (int b = 0; b < kQEQNumBands; ++b)
     {
         const juce::Point<float> centre (freqToX (getBandFreq (b)),
                                          dbToY (getBandGain (b)));
@@ -210,6 +231,10 @@ int EQDisplay::bandAtPosition (juce::Point<float> pos) const
 void EQDisplay::showBandMenu (int band, juce::Point<int> screenPos)
 {
     const int currentShape = processor.getBandShape (band);
+    const int currentSlope = processor.getBandSlope (band);
+    const int currentMS    = processor.getBandMSMode (band);
+    const bool dynOn       = processor.getBandDynOn (band);
+    const bool dynAvail    = qeqShapeSupportsDynamic (currentShape);
 
     juce::PopupMenu shapeMenu;
     for (int s = 0; s < QEQNumShapes; ++s)
@@ -218,7 +243,29 @@ void EQDisplay::showBandMenu (int band, juce::Point<int> screenPos)
 
     juce::PopupMenu menu;
     menu.addSubMenu ("Shape", shapeMenu);
+
+    // Slope submenu (only meaningful for LP/HP).
+    if (currentShape == QEQLowPass || currentShape == QEQHighPass)
+    {
+        juce::PopupMenu slopeMenu;
+        static const char* slopeNames[4] =
+            { "12 dB/oct", "24 dB/oct", "36 dB/oct", "48 dB/oct" };
+        for (int s = 0; s < 4; ++s)
+            slopeMenu.addItem (200 + s, slopeNames[s], true, s == currentSlope);
+        menu.addSubMenu ("Slope", slopeMenu);
+    }
+
+    // Channel mode submenu.
+    {
+        juce::PopupMenu msMenu;
+        for (int m = 0; m < QEQNumMSModes; ++m)
+            msMenu.addItem (300 + m, getQEQMSModeName (m), true, m == currentMS);
+        menu.addSubMenu ("Channel Mode", msMenu);
+    }
+
     menu.addSeparator();
+    if (dynAvail)
+        menu.addItem (4, "Dynamic EQ", true, dynOn);
     menu.addItem (1, "Solo", true, processor.getBandSolo (band));
     menu.addItem (2, "Bypass", true, processor.getBandBypassed (band));
     menu.addItem (3, "Reset Gain");
@@ -229,21 +276,69 @@ void EQDisplay::showBandMenu (int band, juce::Point<int> screenPos)
         [this, band] (int result)
         {
             const auto& info = getQEQBandInfo (band);
-            if (result >= 100)
-                setChoiceParam (info.shapeParam, result - 100);
+            if (result >= 100 && result < 200)
+                setChoiceParam (info.ids.shape, result - 100);
+            else if (result >= 200 && result < 300)
+                setChoiceParam (info.ids.slope, result - 200);
+            else if (result >= 300 && result < 400)
+                setChoiceParam (info.ids.ms, result - 300);
             else if (result == 1)
-                setBoolParam (info.soloParam, ! processor.getBandSolo (band));
+                setBoolParam (info.ids.solo, ! processor.getBandSolo (band));
             else if (result == 2)
-                setBoolParam (info.bypassParam, ! processor.getBandBypassed (band));
+                setBoolParam (info.ids.bypass, ! processor.getBandBypassed (band));
             else if (result == 3)
-                setParamValue (info.gainParam, 0.0f);
+                setFloatParamValue (info.ids.gain, 0.0f);
+            else if (result == 4)
+                setBoolParam (info.ids.dyn, ! processor.getBandDynOn (band));
         });
+}
+
+//==============================================================================
+// Spectrum grab: double-click empty space retargets the least-used band
+// (or the nearest band) to the click point as a bell.
+void EQDisplay::spectrumGrab (juce::Point<float> pos)
+{
+    const float freq = xToFreq (pos.x);
+    const float gain = juce::jlimit (-15.0f, 15.0f, yToDb (pos.y));
+
+    // Prefer an unused band (|gain| < 0.5 dB); else the nearest handle.
+    int target = -1;
+    float bestDist = 1.0e9f;
+    for (int b = 0; b < kQEQNumBands; ++b)
+    {
+        if (std::abs (getBandGain (b)) < 0.5f) { target = b; break; }
+        const juce::Point<float> c (freqToX (getBandFreq (b)),
+                                    dbToY (getBandGain (b)));
+        const float d = c.getDistanceFrom (pos);
+        if (d < bestDist) { bestDist = d; target = b; }
+    }
+
+    if (target < 0)
+        return;
+
+    const auto& info = getQEQBandInfo (target);
+    const bool wasUnused = std::abs (getBandGain (target)) < 0.5f;
+
+    setFloatParamValue (info.ids.freq, freq);
+    setFloatParamValue (info.ids.gain, gain);
+    if (wasUnused)
+    {
+        setChoiceParam (info.ids.shape, QEQBell);
+        setChoiceParam (info.ids.ms, QEQMS_Stereo);
+        setBoolParam (info.ids.bypass, false);
+    }
+
+    selectedBand = target;
+    if (onBandSelected) onBandSelected (target);
+    if (onBandGrabbed)  onBandGrabbed (target);
+    repaint();
 }
 
 //==============================================================================
 void EQDisplay::timerCallback()
 {
-    updateSpectrum();
+    if (! frozen)
+        updateSpectrum();
     repaint();
 }
 
@@ -252,8 +347,11 @@ void EQDisplay::updateSpectrum()
     const double sr = processor.getSampleRate();
     analyserSampleRate = sr > 0.0 ? sr : 44100.0;
 
-    // Drain the FIFO into our ring buffer (most-recent fftSize samples kept).
-    auto& fifo = processor.analyserFifo;
+    auto& fifo = analyserPre ? processor.analyserFifoPre
+                             : processor.analyserFifoPost;
+    float* fifoData = analyserPre ? processor.analyserFifoDataPre
+                                  : processor.analyserFifoDataPost;
+
     int numReady = fifo.getNumReady();
     int totalRead = 0;
 
@@ -267,12 +365,12 @@ void EQDisplay::updateSpectrum()
 
         for (int i = 0; i < size1; ++i)
         {
-            ring[ringWritePos] = processor.analyserFifoData[start1 + i];
+            ring[ringWritePos] = fifoData[start1 + i];
             ringWritePos = (ringWritePos + 1) % fftSize;
         }
         for (int i = 0; i < size2; ++i)
         {
-            ring[ringWritePos] = processor.analyserFifoData[start2 + i];
+            ring[ringWritePos] = fifoData[start2 + i];
             ringWritePos = (ringWritePos + 1) % fftSize;
         }
 
@@ -287,9 +385,6 @@ void EQDisplay::updateSpectrum()
     if (! ringFilled)
         return;
 
-    // Window the real samples FIRST, then interleave for the FFT.
-    // (The windowing table must be applied to the real signal — applying it
-    // to the interleaved complex work buffer windows the wrong samples.)
     float windowed[fftSize];
     for (int i = 0; i < fftSize; ++i)
         windowed[i] = ring[(ringWritePos + i) % fftSize];
@@ -304,9 +399,6 @@ void EQDisplay::updateSpectrum()
 
     fft.performFrequencyOnlyForwardTransform (fftWork);
 
-    // |X[k]| is unnormalised: a full-scale sine with a Hann window reads N/4
-    // in its peak bin (x2 single-sided, x0.5 Hann coherent gain), so scale by
-    // 4/N to make 0 dBFS read 0 dB.
     constexpr float magScale = 4.0f / (float) fftSize;
 
     for (int i = 0; i < fftSize / 2; ++i)
@@ -314,7 +406,6 @@ void EQDisplay::updateSpectrum()
         const float db = juce::jlimit (kAnalyserFloorDb, kAnalyserCeilDb,
             20.0f * std::log10 (fftWork[i] * magScale + 1.0e-9f));
 
-        // Instant attack, ~90 dB/s release.
         if (db > scopeLevels[i])
             scopeLevels[i] = db;
         else
@@ -323,6 +414,16 @@ void EQDisplay::updateSpectrum()
 }
 
 //==============================================================================
+juce::String EQDisplay::noteNameForFreq (float freqHz)
+{
+    // Nearest MIDI note name.
+    static const char* names[12] =
+        { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
+    const float midi = 69.0f + 12.0f * std::log2 (freqHz / 440.0f);
+    const int m = juce::jlimit (0, 127, (int) std::round (midi));
+    return juce::String (names[m % 12]) + juce::String (m / 12 - 1);
+}
+
 void EQDisplay::paint (juce::Graphics& g)
 {
     g.fillAll (kPanel);
@@ -337,11 +438,39 @@ void EQDisplay::paint (juce::Graphics& g)
         g.setColour (kGrid);
         g.drawVerticalLine ((int) x, plotArea.getY(), plotArea.getBottom());
         g.setColour (kTextDim);
-        g.drawText (freqLabel (f), (int) x - 25, (int) plotArea.getBottom() + 4,
+
+        juce::String label = freqLabel (f);
+        if (showPiano)
+        {
+            // Show note name under C notes.
+            const float midi = 69.0f + 12.0f * std::log2 (f / 440.0f);
+            const int m = (int) std::round (midi);
+            if (m % 12 == 0)
+                label = noteNameForFreq (f);
+        }
+
+        g.drawText (label, (int) x - 25, (int) plotArea.getBottom() + 4,
                     50, 16, juce::Justification::centredTop, false);
     }
 
-    for (float db = -15.0f; db <= 15.0f; db += 3.0f)
+    // Piano roll: light note lanes for every semitone when enabled.
+    if (showPiano)
+    {
+        g.setColour (kGrid.withAlpha (0.35f));
+        for (int m = 12; m <= 108; ++m)
+        {
+            const float f = 440.0f * std::pow (2.0f, (m - 69) / 12.0f);
+            if (f < 20.0f || f > 20000.0f)
+                continue;
+            const float x = freqToX (f);
+            const bool isC = (m % 12 == 0);
+            g.setColour (isC ? kTextDim.withAlpha (0.5f) : kGrid.withAlpha (0.3f));
+            g.drawVerticalLine ((int) x, plotArea.getY(), plotArea.getBottom());
+        }
+    }
+
+    const float dbStep = (displayRangeDb > 20.0f) ? 6.0f : 3.0f;
+    for (float db = -displayRangeDb; db <= displayRangeDb + 0.01f; db += dbStep)
     {
         const float y = dbToY (db);
         const bool isZero = std::abs (db) < 0.01f;
@@ -394,6 +523,7 @@ void EQDisplay::paint (juce::Graphics& g)
     //---- EQ curves ----
     constexpr int numPts = 160;
     const float logMin = std::log10 (kMinFreq), logMax = std::log10 (kMaxFreq);
+    const float curveClip = displayRangeDb + 1.0f;
 
     auto buildCurve = [&] (std::function<float (float)> dbAt)
     {
@@ -402,7 +532,7 @@ void EQDisplay::paint (juce::Graphics& g)
         {
             const float t = (float) i / (float) (numPts - 1);
             const float f = std::pow (10.0f, logMin + t * (logMax - logMin));
-            const float y = dbToY (juce::jlimit (-16.0f, 16.0f, dbAt (f)));
+            const float y = dbToY (juce::jlimit (-curveClip, curveClip, dbAt (f)));
             const float x = plotArea.getX() + t * plotArea.getWidth();
             if (i == 0) p.startNewSubPath (x, y);
             else        p.lineTo (x, y);
@@ -410,8 +540,7 @@ void EQDisplay::paint (juce::Graphics& g)
         return p;
     };
 
-    // Per-band contributions (thin, band color; dimmed when inaudible).
-    for (int b = 0; b < 4; ++b)
+    for (int b = 0; b < kQEQNumBands; ++b)
     {
         const bool audible = processor.isBandAudible (b);
         auto p = buildCurve ([this, b] (float f)
@@ -420,7 +549,6 @@ void EQDisplay::paint (juce::Graphics& g)
         g.strokePath (p, juce::PathStrokeType (1.5f));
     }
 
-    // Total curve (bright, 2.5px) + subtle fill.
     {
         auto p = buildCurve ([this] (float f)
                              { return processor.getMagnitudeResponseDb (f); });
@@ -438,7 +566,7 @@ void EQDisplay::paint (juce::Graphics& g)
     }
 
     //---- band handles ----
-    for (int b = 0; b < 4; ++b)
+    for (int b = 0; b < kQEQNumBands; ++b)
     {
         const auto& info = getQEQBandInfo (b);
         const juce::Point<float> c (freqToX (getBandFreq (b)),
@@ -446,6 +574,7 @@ void EQDisplay::paint (juce::Graphics& g)
         const bool selected = (b == selectedBand);
         const bool audible  = processor.isBandAudible (b);
         const bool soloed   = processor.getBandSolo (b);
+        const bool dynOn    = processor.getBandDynOn (b);
         const float alpha   = audible ? 1.0f : 0.35f;
 
         if (selected)
@@ -469,6 +598,29 @@ void EQDisplay::paint (juce::Graphics& g)
                     (int) (kHandleRadius * 2.0f), (int) (kHandleRadius * 2.0f),
                     juce::Justification::centred, false);
 
+        // M/S mode badge (non-stereo).
+        const int msMode = processor.getBandMSMode (b);
+        if (msMode != QEQMS_Stereo)
+        {
+            const float bx = c.x - kHandleRadius - 5.0f;
+            const float by = c.y - kHandleRadius - 5.0f;
+            g.setColour (kSpecLine.withAlpha (alpha));
+            g.fillEllipse (bx, by, 16.0f, 16.0f);
+            g.setColour (juce::Colours::black);
+            g.setFont (juce::Font (9.0f, juce::Font::bold));
+            const char* msTag = "?";
+            switch (msMode)
+            {
+                case QEQMS_Left:  msTag = "L"; break;
+                case QEQMS_Right: msTag = "R"; break;
+                case QEQMS_Mid:   msTag = "M"; break;
+                case QEQMS_Side:  msTag = "S"; break;
+                default: break;
+            }
+            g.drawText (msTag, (int) bx, (int) by, 16, 16,
+                        juce::Justification::centred, false);
+        }
+
         // Solo badge.
         if (soloed)
         {
@@ -481,7 +633,28 @@ void EQDisplay::paint (juce::Graphics& g)
             g.drawText ("S", (int) bx, (int) by, 16, 16,
                         juce::Justification::centred, false);
         }
+
+        // Dynamic badge.
+        if (dynOn)
+        {
+            const float bx = c.x - 8.0f;
+            const float by = c.y + kHandleRadius - 5.0f;
+            g.setColour (kDynOn.withAlpha (alpha));
+            g.fillEllipse (bx, by, 16.0f, 16.0f);
+            g.setColour (juce::Colours::black);
+            g.setFont (juce::Font (9.0f, juce::Font::bold));
+            g.drawText ("D", (int) bx, (int) by, 16, 16,
+                        juce::Justification::centred, false);
+        }
     }
+
+    // Analyzer mode / freeze indicator.
+    g.setFont (10.0f);
+    g.setColour (kTextDim);
+    juce::String modeText = analyserPre ? "PRE" : "POST";
+    if (frozen) modeText += " · FROZEN";
+    g.drawText (modeText, (int) plotArea.getRight() - 110, (int) plotArea.getY() + 4,
+                104, 14, juce::Justification::right, false);
 
     g.setColour (kGrid);
     g.drawRect (getLocalBounds(), 1);
@@ -494,7 +667,6 @@ void EQDisplay::mouseDown (const juce::MouseEvent& e)
     if (band < 0)
         return;
 
-    // Right-click: band options menu.
     if (e.mods.isPopupMenu())
     {
         showBandMenu (band, e.getScreenPosition());
@@ -520,9 +692,8 @@ void EQDisplay::mouseDrag (const juce::MouseEvent& e)
     const float dx = e.position.x - dragStartPos.x;
     const float dy = e.position.y - dragStartPos.y;
 
-    // Horizontal = frequency (log), vertical = gain (up = boost).
-    setParamValue (info.freqParam, xToFreq (freqToX (dragStartFreq) + dx));
-    setParamValue (info.gainParam, yToDb (dbToY (dragStartGain) + dy));
+    setFloatParamValue (info.ids.freq, xToFreq (freqToX (dragStartFreq) + dx));
+    setFloatParamValue (info.ids.gain, yToDb (dbToY (dragStartGain) + dy));
 }
 
 void EQDisplay::mouseUp (const juce::MouseEvent&)
@@ -544,7 +715,7 @@ void EQDisplay::mouseWheelMove (const juce::MouseEvent& e,
     if (band < 0)
         return;
 
-    if (auto* p = getParam (getQEQBandInfo (band).qParam))
+    if (auto* p = getFloatParam (getQEQBandInfo (band).ids.q))
     {
         const float norm = juce::jlimit (0.0f, 1.0f,
             p->convertTo0to1 (p->get()) + wheel.deltaY * 0.08f);
@@ -556,7 +727,15 @@ void EQDisplay::mouseDoubleClick (const juce::MouseEvent& e)
 {
     const int band = bandAtPosition (e.position);
     if (band >= 0)
-        setParamValue (getQEQBandInfo (band).gainParam, 0.0f);
+    {
+        // Double-click a handle: reset its gain.
+        setFloatParamValue (getQEQBandInfo (band).ids.gain, 0.0f);
+    }
+    else if (plotArea.contains (e.position))
+    {
+        // Double-click empty space: spectrum grab.
+        spectrumGrab (e.position);
+    }
 }
 
 //==============================================================================
@@ -570,7 +749,6 @@ void HeatLookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, int wid
     const auto centre = bounds.getCentre();
     const float heat = juce::jlimit (0.0f, 1.0f, sliderPosProportional);
 
-    // Outer glow, intensifies with value.
     if (heat > 0.02f)
     {
         for (int i = 3; i >= 1; --i)
@@ -581,7 +759,6 @@ void HeatLookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, int wid
         }
     }
 
-    // Track arc.
     g.setColour (kGrid);
     juce::Path track;
     track.addCentredArc (centre.x, centre.y, radius, radius, 0.0f,
@@ -589,7 +766,6 @@ void HeatLookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, int wid
     g.strokePath (track, juce::PathStrokeType (6.0f, juce::PathStrokeType::curved,
                                               juce::PathStrokeType::rounded));
 
-    // Value arc: orange -> red as heat rises.
     const float angle = rotaryStartAngle
                         + sliderPosProportional * (rotaryEndAngle - rotaryStartAngle);
     g.setColour (juce::Colour (0xffFF9F1C).interpolatedWith (
@@ -600,14 +776,12 @@ void HeatLookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, int wid
     g.strokePath (value, juce::PathStrokeType (6.0f, juce::PathStrokeType::curved,
                                               juce::PathStrokeType::rounded));
 
-    // Knob body.
     const float inner = radius - 8.0f;
     g.setColour (kPanel);
     g.fillEllipse (centre.x - inner, centre.y - inner, inner * 2.0f, inner * 2.0f);
     g.setColour (kGrid);
     g.drawEllipse (centre.x - inner, centre.y - inner, inner * 2.0f, inner * 2.0f, 1.0f);
 
-    // Pointer.
     const juce::Point<float> tip (centre.x + std::sin (angle) * (inner - 3.0f),
                                   centre.y - std::cos (angle) * (inner - 3.0f));
     g.setColour (juce::Colours::white.withAlpha (0.9f));
@@ -618,7 +792,12 @@ void HeatLookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, int wid
 QEQEditor::QEQEditor (QEQProcessor& p)
     : AudioProcessorEditor (p), processor (p), display (p)
 {
-    setSize (900, 620);
+    // Restore last size (clamped to the resizable limits).
+    const int w = juce::jlimit (700, 1400, processor.storedEditorWidth);
+    const int h = juce::jlimit (520, 1000, processor.storedEditorHeight);
+    setSize (w, h);
+    setResizable (true, true);
+    setResizeLimits (700, 520, 1400, 1000);
 
     logoImage = juce::ImageCache::getFromMemory (BinaryData::headroomlogo_png,
                                                  BinaryData::headroomlogo_pngSize);
@@ -634,7 +813,6 @@ QEQEditor::QEQEditor (QEQProcessor& p)
     brandLabel.setColour (juce::Label::textColourId, kTextDim);
     addAndMakeVisible (brandLabel);
 
-    //---- preset menu ----
     styleComboBox (presetBox);
     presetBox.setTextWhenNothingSelected ("Presets");
     presetBox.onChange = [this] { onPresetChosen(); };
@@ -697,9 +875,10 @@ QEQEditor::QEQEditor (QEQProcessor& p)
 
     //---- display ----
     display.onBandSelected = [this] (int b) { selectBand (b); };
+    display.onBandGrabbed  = [this] (int b) { selectBand (b); };
     addAndMakeVisible (display);
 
-    //---- bottom-left: selected band ----
+    //---- bottom: selected band ----
     bandTitleLabel.setFont (juce::Font (13.0f, juce::Font::bold));
     bandTitleLabel.setColour (juce::Label::textColourId, kText);
     addAndMakeVisible (bandTitleLabel);
@@ -715,6 +894,8 @@ QEQEditor::QEQEditor (QEQProcessor& p)
     makeCaption (gainCaption, "GAIN");
     makeCaption (qCaption, "Q");
     makeCaption (shapeCaption, "SHAPE");
+    makeCaption (slopeCaption, "SLOPE");
+    makeCaption (msCaption, "MODE");
 
     styleHorizontalSlider (freqSlider, " Hz", kTextDim);
     styleHorizontalSlider (gainSlider, " dB", kTextDim);
@@ -728,6 +909,18 @@ QEQEditor::QEQEditor (QEQProcessor& p)
     styleComboBox (shapeBox);
     addAndMakeVisible (shapeBox);
 
+    slopeBox.addItem ("12 dB/oct", 1);
+    slopeBox.addItem ("24 dB/oct", 2);
+    slopeBox.addItem ("36 dB/oct", 3);
+    slopeBox.addItem ("48 dB/oct", 4);
+    styleComboBox (slopeBox);
+    addAndMakeVisible (slopeBox);
+
+    for (int m = 0; m < QEQNumMSModes; ++m)
+        msBox.addItem (getQEQMSModeName (m), m + 1);
+    styleComboBox (msBox);
+    addAndMakeVisible (msBox);
+
     soloBtn.setButtonText ("S");
     soloBtn.setClickingTogglesState (true);
     styleToggleButton (soloBtn, kSoloOn);
@@ -738,7 +931,100 @@ QEQEditor::QEQEditor (QEQProcessor& p)
     styleToggleButton (bypassBtn, kBypassOn);
     addAndMakeVisible (bypassBtn);
 
-    //---- bottom-right: signature ----
+    //---- bottom: dynamics ----
+    dynTitleLabel.setText ("DYNAMICS", juce::dontSendNotification);
+    dynTitleLabel.setFont (juce::Font (11.0f, juce::Font::bold));
+    dynTitleLabel.setColour (juce::Label::textColourId, kTextDim);
+    addAndMakeVisible (dynTitleLabel);
+
+    dynBtn.setButtonText ("DYN");
+    dynBtn.setClickingTogglesState (true);
+    styleToggleButton (dynBtn, kDynOn);
+    addAndMakeVisible (dynBtn);
+
+    dynSrcBox.addItem ("Internal", 1);
+    dynSrcBox.addItem ("External", 2);
+    styleComboBox (dynSrcBox);
+    addAndMakeVisible (dynSrcBox);
+
+    makeCaption (dynAtkCaption, "ATK");
+    makeCaption (dynRelCaption, "REL");
+    makeCaption (dynThrCaption, "THR");
+    makeCaption (dynRngCaption, "RNG");
+
+    styleHorizontalSlider (dynAtkSlider, " ms", kDynOn);
+    styleHorizontalSlider (dynRelSlider, " ms", kDynOn);
+    styleHorizontalSlider (dynThrSlider, " dB", kDynOn);
+    styleHorizontalSlider (dynRngSlider, " dB", kDynOn);
+    addAndMakeVisible (dynAtkSlider);
+    addAndMakeVisible (dynRelSlider);
+    addAndMakeVisible (dynThrSlider);
+    addAndMakeVisible (dynRngSlider);
+
+    //---- bottom: global ----
+    mixCaption.setText ("MIX", juce::dontSendNotification);
+    mixCaption.setFont (juce::Font (11.0f, juce::Font::bold));
+    mixCaption.setColour (juce::Label::textColourId, kTextDim);
+    mixCaption.setJustificationType (juce::Justification::centred);
+    addAndMakeVisible (mixCaption);
+
+    mixKnob.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
+    mixKnob.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 56, 14);
+    mixKnob.setTextValueSuffix (" %");
+    mixKnob.setColour (juce::Slider::rotarySliderFillColourId, kSpecLine);
+    mixKnob.setColour (juce::Slider::rotarySliderOutlineColourId, kGrid);
+    mixKnob.setColour (juce::Slider::thumbColourId, kText);
+    mixKnob.setColour (juce::Slider::textBoxTextColourId, kTextDim);
+    mixKnob.setColour (juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
+    addAndMakeVisible (mixKnob);
+    mixAttachment = std::make_unique<SliderAttachment> (
+        processor.apvts, QEQProcessor::kMix, mixKnob);
+
+    analyserCaption.setText ("ANALYZER", juce::dontSendNotification);
+    analyserCaption.setFont (juce::Font (11.0f, juce::Font::bold));
+    analyserCaption.setColour (juce::Label::textColourId, kTextDim);
+    addAndMakeVisible (analyserCaption);
+
+    analyserPreBtn.setButtonText ("PRE");
+    analyserPreBtn.setClickingTogglesState (true);
+    styleSmallButton (analyserPreBtn);
+    analyserPreBtn.onClick = [this] { onAnalyserModeClicked (true); };
+    addAndMakeVisible (analyserPreBtn);
+
+    analyserPostBtn.setButtonText ("POST");
+    analyserPostBtn.setClickingTogglesState (true);
+    styleSmallButton (analyserPostBtn);
+    analyserPostBtn.setToggleState (true, juce::dontSendNotification);
+    analyserPostBtn.onClick = [this] { onAnalyserModeClicked (false); };
+    addAndMakeVisible (analyserPostBtn);
+
+    freezeBtn.setButtonText ("FREEZE");
+    freezeBtn.setClickingTogglesState (true);
+    styleSmallButton (freezeBtn);
+    freezeBtn.onClick = [this] { onFreezeClicked(); };
+    addAndMakeVisible (freezeBtn);
+
+    rangeBtn.setButtonText ("12 dB");
+    styleSmallButton (rangeBtn);
+    rangeBtn.onClick = [this] { onRangeClicked(); };
+    addAndMakeVisible (rangeBtn);
+
+    pianoBtn.setButtonText ("PIANO");
+    pianoBtn.setClickingTogglesState (true);
+    styleSmallButton (pianoBtn);
+    pianoBtn.onClick = [this] { onPianoClicked(); };
+    addAndMakeVisible (pianoBtn);
+
+    autoGainBtn.setButtonText ("AUTO GAIN");
+    autoGainBtn.setClickingTogglesState (true);
+    styleSmallButton (autoGainBtn);
+    autoGainBtn.onClick = [this] { onAutoGainClicked(); };
+    addAndMakeVisible (autoGainBtn);
+    autoGainAttachment = std::make_unique<ButtonAttachment> (
+        processor.apvts, QEQProcessor::kAutoGain, autoGainBtn);
+
+    //---- bottom-right: signature (panel blends into the background —
+    // the old red tint is gone) ----
     signatureLabel.setText ("SIGNATURE", juce::dontSendNotification);
     signatureLabel.setFont (11.0f);
     signatureLabel.setColour (juce::Label::textColourId, kTextDim);
@@ -784,15 +1070,31 @@ QEQEditor::QEQEditor (QEQProcessor& p)
     loadFavorites();
     refreshPresetMenu();
 
-    // Watch shape params so the gain slider / band title follow shape changes.
-    for (int b = 0; b < 4; ++b)
-        processor.apvts.addParameterListener (QEQProcessor::kBandShapeIds[b], this);
+    // Watch the params that change band UI visibility/behaviour.
+    for (int b = 0; b < kQEQNumBands; ++b)
+    {
+        const auto& ids = getQEQBandParamIds (b);
+        processor.apvts.addParameterListener (ids.shape, this);
+        processor.apvts.addParameterListener (ids.slope, this);
+        processor.apvts.addParameterListener (ids.ms, this);
+        processor.apvts.addParameterListener (ids.dyn, this);
+    }
 }
 
 QEQEditor::~QEQEditor()
 {
-    for (int b = 0; b < 4; ++b)
-        processor.apvts.removeParameterListener (QEQProcessor::kBandShapeIds[b], this);
+    // Persist the current size for next open.
+    processor.storedEditorWidth  = getWidth();
+    processor.storedEditorHeight = getHeight();
+
+    for (int b = 0; b < kQEQNumBands; ++b)
+    {
+        const auto& ids = getQEQBandParamIds (b);
+        processor.apvts.removeParameterListener (ids.shape, this);
+        processor.apvts.removeParameterListener (ids.slope, this);
+        processor.apvts.removeParameterListener (ids.ms, this);
+        processor.apvts.removeParameterListener (ids.dyn, this);
+    }
 
     heatKnob.setLookAndFeel (nullptr);
 }
@@ -802,36 +1104,66 @@ void QEQEditor::parameterChanged (const juce::String& parameterID, float)
     if (selectedBand < 0)
         return;
 
-    if (parameterID == juce::String (getQEQBandInfo (selectedBand).shapeParam))
-        updateBandDependentUI();
+    const auto& ids = getQEQBandInfo (selectedBand).ids;
+    if (parameterID == ids.shape || parameterID == ids.slope
+        || parameterID == ids.ms || parameterID == ids.dyn)
+    {
+        // Listener may fire off the message thread — defer to it.
+        juce::MessageManager::callAsync ([this] { updateBandDependentUI(); });
+    }
 }
 
+//==============================================================================
 void QEQEditor::selectBand (int index)
 {
-    index = juce::jlimit (0, 3, index);
+    index = juce::jlimit (0, kQEQNumBands - 1, index);
     const auto& info = getQEQBandInfo (index);
 
     freqAttachment.reset();
     gainAttachment.reset();
     qAttachment.reset();
     shapeAttachment.reset();
+    slopeAttachment.reset();
+    msAttachment.reset();
     soloAttachment.reset();
     bypassAttachment.reset();
+    dynAttachment.reset();
+    dynSrcAttachment.reset();
+    dynAtkAttachment.reset();
+    dynRelAttachment.reset();
+    dynThrAttachment.reset();
+    dynRngAttachment.reset();
 
     freqAttachment = std::make_unique<SliderAttachment> (
-        processor.apvts, info.freqParam, freqSlider);
+        processor.apvts, info.ids.freq, freqSlider);
     gainAttachment = std::make_unique<SliderAttachment> (
-        processor.apvts, info.gainParam, gainSlider);
+        processor.apvts, info.ids.gain, gainSlider);
     qAttachment = std::make_unique<SliderAttachment> (
-        processor.apvts, info.qParam, qSlider);
+        processor.apvts, info.ids.q, qSlider);
     shapeAttachment = std::make_unique<ComboBoxAttachment> (
-        processor.apvts, info.shapeParam, shapeBox);
+        processor.apvts, info.ids.shape, shapeBox);
+    slopeAttachment = std::make_unique<ComboBoxAttachment> (
+        processor.apvts, info.ids.slope, slopeBox);
+    msAttachment = std::make_unique<ComboBoxAttachment> (
+        processor.apvts, info.ids.ms, msBox);
     soloAttachment = std::make_unique<ButtonAttachment> (
-        processor.apvts, info.soloParam, soloBtn);
+        processor.apvts, info.ids.solo, soloBtn);
     bypassAttachment = std::make_unique<ButtonAttachment> (
-        processor.apvts, info.bypassParam, bypassBtn);
+        processor.apvts, info.ids.bypass, bypassBtn);
 
-    // Tint the band sliders to the selected band's color.
+    dynAttachment = std::make_unique<ButtonAttachment> (
+        processor.apvts, info.ids.dyn, dynBtn);
+    dynSrcAttachment = std::make_unique<ComboBoxAttachment> (
+        processor.apvts, info.ids.dynSrc, dynSrcBox);
+    dynAtkAttachment = std::make_unique<SliderAttachment> (
+        processor.apvts, info.ids.dynAtk, dynAtkSlider);
+    dynRelAttachment = std::make_unique<SliderAttachment> (
+        processor.apvts, info.ids.dynRel, dynRelSlider);
+    dynThrAttachment = std::make_unique<SliderAttachment> (
+        processor.apvts, info.ids.dynThr, dynThrSlider);
+    dynRngAttachment = std::make_unique<SliderAttachment> (
+        processor.apvts, info.ids.dynRng, dynRngSlider);
+
     for (auto* s : { &freqSlider, &gainSlider, &qSlider })
     {
         s->setColour (juce::Slider::trackColourId, info.colour.withAlpha (0.55f));
@@ -853,18 +1185,78 @@ void QEQEditor::updateBandDependentUI()
         return;
 
     const int shape = processor.getBandShape (selectedBand);
-    const bool isPassFilter = (shape == QEQLowPass || shape == QEQHighPass);
+    const bool isCut = (shape == QEQLowPass || shape == QEQHighPass);
+    const bool isAllPass = (shape == QEQAllPass);
+    const bool dynAvail = qeqShapeSupportsDynamic (shape);
+    const bool dynOn = processor.getBandDynOn (selectedBand) && dynAvail;
 
-    gainSlider.setEnabled (! isPassFilter);
-    gainSlider.setAlpha (isPassFilter ? 0.35f : 1.0f);
+    gainSlider.setEnabled (! isCut && ! isAllPass);
+    gainSlider.setAlpha ((isCut || isAllPass) ? 0.35f : 1.0f);
+
+    slopeCaption.setEnabled (isCut);
+    slopeBox.setEnabled (isCut);
+    slopeBox.setAlpha (isCut ? 1.0f : 0.35f);
+
+    dynBtn.setEnabled (dynAvail);
+    dynBtn.setAlpha (dynAvail ? 1.0f : 0.35f);
+    const bool dynUI = dynOn;
+    dynSrcBox.setEnabled (dynUI);
+    dynAtkSlider.setEnabled (dynUI);
+    dynRelSlider.setEnabled (dynUI);
+    dynThrSlider.setEnabled (dynUI);
+    dynRngSlider.setEnabled (dynUI);
+    const float dynAlpha = dynUI ? 1.0f : 0.35f;
+    dynSrcBox.setAlpha (dynAlpha);
+    dynAtkSlider.setAlpha (dynAlpha);
+    dynRelSlider.setAlpha (dynAlpha);
+    dynThrSlider.setAlpha (dynAlpha);
+    dynRngSlider.setAlpha (dynAlpha);
 
     const auto& info = getQEQBandInfo (selectedBand);
-    bandTitleLabel.setText ("BAND " + juce::String (selectedBand + 1) + "  ·  "
-                            + getQEQBandShapeName (shape).toUpperCase(),
-                            juce::dontSendNotification);
+    juce::String title = "BAND " + juce::String (selectedBand + 1) + "  ·  "
+                         + getQEQBandShapeName (shape).toUpperCase();
+    if (isCut)
+        title += "  ·  " + juce::String (qeqSlopeDbPerOct (
+            processor.getBandSlope (selectedBand))) + " dB/oct";
+    title += "  ·  " + getQEQMSModeName (processor.getBandMSMode (selectedBand)).toUpperCase();
+    if (dynOn)
+        title += "  ·  DYN";
+    bandTitleLabel.setText (title, juce::dontSendNotification);
     bandTitleLabel.setColour (juce::Label::textColourId, info.colour);
 }
 
+//==============================================================================
+void QEQEditor::onAnalyserModeClicked (bool pre)
+{
+    analyserPreBtn.setToggleState (pre, juce::dontSendNotification);
+    analyserPostBtn.setToggleState (! pre, juce::dontSendNotification);
+    display.setAnalyserPre (pre);
+}
+
+void QEQEditor::onRangeClicked()
+{
+    static bool is30 = false;
+    is30 = ! is30;
+    rangeBtn.setButtonText (is30 ? "30 dB" : "12 dB");
+    display.setDisplayRangeDb (is30 ? 30.0f : 12.0f);
+}
+
+void QEQEditor::onPianoClicked()
+{
+    display.setShowPiano (pianoBtn.getToggleState());
+}
+
+void QEQEditor::onFreezeClicked()
+{
+    display.setFrozen (freezeBtn.getToggleState());
+}
+
+void QEQEditor::onAutoGainClicked()
+{
+    // Attachment handles the parameter; nothing extra needed.
+}
+
+//==============================================================================
 void QEQEditor::styleHorizontalSlider (juce::Slider& s, const juce::String& suffix,
                                        const juce::Colour& accent)
 {
@@ -898,6 +1290,15 @@ void QEQEditor::styleToggleButton (juce::TextButton& btn, const juce::Colour& on
     btn.setColour (juce::TextButton::buttonOnColourId, onColour);
     btn.setColour (juce::TextButton::textColourOffId, kTextDim);
     btn.setColour (juce::TextButton::textColourOnId, juce::Colours::white);
+}
+
+void QEQEditor::styleSmallButton (juce::TextButton& btn)
+{
+    btn.setColour (juce::TextButton::buttonColourId, kPanel);
+    btn.setColour (juce::TextButton::buttonOnColourId, kSpecLine);
+    btn.setColour (juce::TextButton::textColourOffId, kTextDim);
+    btn.setColour (juce::TextButton::textColourOnId, juce::Colours::black);
+    btn.setColour (juce::ComboBox::outlineColourId, kGrid);
 }
 
 //==============================================================================
@@ -1037,7 +1438,7 @@ void QEQEditor::applyPresetByName (const juce::String& name)
     refreshPresetMenu();
 }
 
-void QEQEditor::setFloatParam (const char* paramId, float value)
+void QEQEditor::setFloatParam (const juce::String& paramId, float value)
 {
     if (auto* p = dynamic_cast<juce::AudioParameterFloat*> (
             processor.apvts.getParameter (paramId)))
@@ -1048,32 +1449,44 @@ void QEQEditor::setFloatParam (const char* paramId, float value)
     }
 }
 
+void QEQEditor::setChoiceParam (const juce::String& paramId, int choice)
+{
+    if (auto* p = dynamic_cast<juce::AudioParameterChoice*> (
+            processor.apvts.getParameter (paramId)))
+        p->setValueNotifyingHost (p->convertTo0to1 ((float) choice));
+}
+
+void QEQEditor::setBoolParam (const juce::String& paramId, bool value)
+{
+    if (auto* p = dynamic_cast<juce::AudioParameterBool*> (
+            processor.apvts.getParameter (paramId)))
+        p->setValueNotifyingHost (value ? 1.0f : 0.0f);
+}
+
 void QEQEditor::applyFactoryPreset (const QEQFactoryPreset& p)
 {
-    for (int b = 0; b < 4; ++b)
+    for (int b = 0; b < kQEQNumBands; ++b)
     {
         const auto& info = getQEQBandInfo (b);
-        setFloatParam (info.freqParam, p.freq[b]);
-        setFloatParam (info.gainParam, p.gain[b]);
-        setFloatParam (info.qParam, p.q[b]);
-
-        if (auto* c = dynamic_cast<juce::AudioParameterChoice*> (
-                processor.apvts.getParameter (info.shapeParam)))
-            c->setValueNotifyingHost (c->convertTo0to1 ((float) p.shape[b]));
-
-        if (auto* s = dynamic_cast<juce::AudioParameterBool*> (
-                processor.apvts.getParameter (info.soloParam)))
-            s->setValueNotifyingHost (0.0f);
-
-        if (auto* bp = dynamic_cast<juce::AudioParameterBool*> (
-                processor.apvts.getParameter (info.bypassParam)))
-            bp->setValueNotifyingHost (0.0f);
+        setFloatParam (info.ids.freq, p.freq[b]);
+        setFloatParam (info.ids.gain, p.gain[b]);
+        setFloatParam (info.ids.q, p.q[b]);
+        setChoiceParam (info.ids.shape, p.shape[b]);
+        setChoiceParam (info.ids.slope, p.slope[b]);
+        setChoiceParam (info.ids.ms, p.ms[b]);
+        setBoolParam (info.ids.solo, false);
+        setBoolParam (info.ids.bypass, false);
+        setBoolParam (info.ids.dyn, false);
     }
 
     setFloatParam (QEQProcessor::kHeat, p.heat);
     setFloatParam (QEQProcessor::kTilt, p.tilt);
     setFloatParam (QEQProcessor::kOutput, p.output);
+    setFloatParam (QEQProcessor::kMix, p.mix);
+    setBoolParam (QEQProcessor::kAutoGain, false);
 
+    if (selectedBand >= 0)
+        selectBand (selectedBand);
     updateBandDependentUI();
 }
 
@@ -1088,6 +1501,8 @@ void QEQEditor::applyUserPreset (const juce::String& name)
             processor.apvts.replaceState (tree);
     }
 
+    if (selectedBand >= 0)
+        selectBand (selectedBand);
     updateBandDependentUI();
 }
 
@@ -1163,55 +1578,134 @@ void QEQEditor::paint (juce::Graphics& g)
         g.drawImageWithin (logoImage, 14, 12, 32, 32,
                            juce::RectanglePlacement::centred, false);
 
-    // Signature section panel (bottom-right).
-    auto sigArea = juce::Rectangle<int> (476, 462, 900 - 476 - 8, 620 - 462 - 8);
-    g.setColour (kSigPanel);
-    g.fillRoundedRectangle (sigArea.toFloat(), 8.0f);
+    // Thin divider above the bottom panel. (The old red-tinted signature
+    // panel is gone — the signature section now sits on the same background
+    // as the Band section.)
+    const int bottomY = getHeight() - bottomPanelHeight();
     g.setColour (kGrid);
-    g.drawRoundedRectangle (sigArea.toFloat(), 8.0f, 1.0f);
+    g.drawHorizontalLine (bottomY, 8, getWidth() - 8);
+}
 
-    // Thin divider above the bottom panel.
-    g.setColour (kGrid);
-    g.drawHorizontalLine (460, 8, 892);
+int QEQEditor::bottomPanelHeight() const
+{
+    // Scale the bottom panel a little with window height, clamped.
+    return juce::jlimit (190, 230, getHeight() / 4 + 40);
 }
 
 void QEQEditor::resized()
 {
-    //---- top bar (0..56) ----
+    const int W = getWidth();
+    const int H = getHeight();
+    const int topH = 56;
+    const int bottomH = bottomPanelHeight();
+    const int bottomY = H - bottomH;
+
+    //---- top bar ----
     titleLabel.setBounds (52, 8, 76, 36);
     brandLabel.setBounds (128, 24, 140, 18);
 
     prevPresetBtn.setBounds (246, 14, 30, 28);
-    presetBox.setBounds (280, 12, 224, 32);
-    nextPresetBtn.setBounds (508, 14, 30, 28);
-    heartBtn.setBounds (542, 12, 34, 32);
-    savePresetBtn.setBounds (580, 14, 62, 28);
+    presetBox.setBounds (280, 12, juce::jmin (224, W - 560), 32);
+    nextPresetBtn.setBounds (280 + presetBox.getWidth() + 4, 14, 30, 28);
+    heartBtn.setBounds (nextPresetBtn.getRight() + 4, 12, 34, 32);
+    savePresetBtn.setBounds (heartBtn.getRight() + 4, 14, 62, 28);
 
-    outputKnob.setBounds (900 - 76, 2, 60, 44);
-    outputCaption.setBounds (900 - 76, 44, 60, 12);
+    outputKnob.setBounds (W - 76, 2, 60, 44);
+    outputCaption.setBounds (W - 76, 44, 60, 12);
 
     //---- display ----
-    display.setBounds (8, 60, 884, 396);
+    display.setBounds (8, topH + 4, W - 16, bottomY - topH - 12);
 
-    //---- bottom panel (464..612) ----
-    bandTitleLabel.setBounds (16, 464, 440, 20);
+    //---- bottom panel columns ----
+    const int bx = 8;
+    const int bw = W - 16;
+    const int colBandX = bx;
+    const int colBandW = (int) (bw * 0.36f);
+    const int colDynX  = colBandX + colBandW;
+    const int colDynW  = (int) (bw * 0.22f);
+    const int colGlobX = colDynX + colDynW;
+    const int colGlobW = (int) (bw * 0.22f);
+    const int colSigX  = colGlobX + colGlobW;
+    const int colSigW  = bx + bw - colSigX;
 
-    shapeCaption.setBounds (16, 488, 52, 24);
-    shapeBox.setBounds (72, 488, 168, 24);
-    soloBtn.setBounds (248, 488, 46, 24);
-    bypassBtn.setBounds (298, 488, 46, 24);
+    const int pad = 8;
+    int y = bottomY + 6;
 
-    freqCaption.setBounds (16, 516, 52, 22);
-    freqSlider.setBounds (72, 516, 330, 22);
-    gainCaption.setBounds (16, 540, 52, 22);
-    gainSlider.setBounds (72, 540, 330, 22);
-    qCaption.setBounds (16, 564, 52, 22);
-    qSlider.setBounds (72, 564, 330, 22);
+    // Band column.
+    bandTitleLabel.setBounds (colBandX + pad, y, colBandW - pad * 2, 20);
+    y += 24;
+    {
+        const int labelW = 52, ctrlX = colBandX + pad + labelW + 4;
+        const int ctrlW = colBandW - pad * 2 - labelW - 4;
+        const int rowH = 24;
+        shapeCaption.setBounds (colBandX + pad, y, labelW, rowH);
+        shapeBox.setBounds (ctrlX, y, ctrlW / 2 - 2, rowH);
+        slopeCaption.setBounds (ctrlX + ctrlW / 2 + 2, y, 44, rowH);
+        slopeBox.setBounds (ctrlX + ctrlW / 2 + 50, y, ctrlW / 2 - 50, rowH);
+        y += rowH + 2;
+        msCaption.setBounds (colBandX + pad, y, labelW, rowH);
+        msBox.setBounds (ctrlX, y, ctrlW / 2 - 2, rowH);
+        soloBtn.setBounds (ctrlX + ctrlW / 2 + 2, y, (ctrlW / 2 - 6) / 2, rowH);
+        bypassBtn.setBounds (soloBtn.getRight() + 4, y, (ctrlW / 2 - 6) / 2, rowH);
+        y += rowH + 4;
+        freqCaption.setBounds (colBandX + pad, y, labelW, 22);
+        freqSlider.setBounds (ctrlX, y, ctrlW, 22);
+        y += 24;
+        gainCaption.setBounds (colBandX + pad, y, labelW, 22);
+        gainSlider.setBounds (ctrlX, y, ctrlW, 22);
+        y += 24;
+        qCaption.setBounds (colBandX + pad, y, labelW, 22);
+        qSlider.setBounds (ctrlX, y, ctrlW, 22);
+    }
 
-    //---- signature ----
-    signatureLabel.setBounds (492, 468, 200, 18);
-    heatKnob.setBounds (506, 488, 104, 100);
-    heatCaption.setBounds (496, 590, 124, 16);
-    tiltKnob.setBounds (656, 496, 88, 88);
-    tiltCaption.setBounds (646, 590, 108, 16);
+    // Dynamics column.
+    {
+        int dy = bottomY + 6;
+        dynTitleLabel.setBounds (colDynX + pad, dy, colDynW - pad * 2, 20);
+        dy += 24;
+        dynBtn.setBounds (colDynX + pad, dy, 64, 24);
+        dynSrcBox.setBounds (colDynX + pad + 70, dy, colDynW - pad * 2 - 70, 24);
+        dy += 28;
+        const int labelW = 40, ctrlX = colDynX + pad + labelW + 4;
+        const int ctrlW = colDynW - pad * 2 - labelW - 4;
+        dynAtkCaption.setBounds (colDynX + pad, dy, labelW, 22);
+        dynAtkSlider.setBounds (ctrlX, dy, ctrlW, 22);
+        dy += 24;
+        dynRelCaption.setBounds (colDynX + pad, dy, labelW, 22);
+        dynRelSlider.setBounds (ctrlX, dy, ctrlW, 22);
+        dy += 24;
+        dynThrCaption.setBounds (colDynX + pad, dy, labelW, 22);
+        dynThrSlider.setBounds (ctrlX, dy, ctrlW, 22);
+        dy += 24;
+        dynRngCaption.setBounds (colDynX + pad, dy, labelW, 22);
+        dynRngSlider.setBounds (ctrlX, dy, ctrlW, 22);
+    }
+
+    // Global column.
+    {
+        int gy = bottomY + 6;
+        mixCaption.setBounds (colGlobX + pad, gy, 70, 16);
+        analyserCaption.setBounds (colGlobX + pad + 76, gy, colGlobW - pad * 2 - 76, 16);
+        gy += 20;
+        mixKnob.setBounds (colGlobX + pad, gy, 76, 76);
+        analyserPreBtn.setBounds (colGlobX + pad + 82, gy, 52, 22);
+        analyserPostBtn.setBounds (colGlobX + pad + 138, gy, 52, 22);
+        gy += 26;
+        freezeBtn.setBounds (colGlobX + pad + 82, gy, 52, 22);
+        rangeBtn.setBounds (colGlobX + pad + 138, gy, 52, 22);
+        gy += 26;
+        pianoBtn.setBounds (colGlobX + pad + 82, gy, 52, 22);
+        autoGainBtn.setBounds (colGlobX + pad + 138, gy, 80, 22);
+    }
+
+    // Signature column.
+    {
+        const int knobSize = juce::jmin (104, bottomH - 60);
+        signatureLabel.setBounds (colSigX + pad, bottomY + 6, colSigW - pad * 2, 18);
+        const int ky = bottomY + 28;
+        heatKnob.setBounds (colSigX + pad, ky, knobSize, knobSize);
+        heatCaption.setBounds (colSigX + pad - 10, ky + knobSize + 2, knobSize + 20, 16);
+        tiltKnob.setBounds (heatKnob.getRight() + 6, ky + 8, knobSize - 16, knobSize - 16);
+        tiltCaption.setBounds (tiltKnob.getX() - 10, ky + knobSize + 2, knobSize + 4, 16);
+    }
 }

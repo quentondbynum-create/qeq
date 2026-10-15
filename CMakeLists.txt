@@ -16,7 +16,7 @@ FetchContent_MakeAvailable(JUCE)
 juce_add_plugin(QEQ
     COMPANY_NAME "Headroom Audio"
     PLUGIN_NAME "QEQ"
-    DESCRIPTION "Character EQ: 4-band EQ with Heat saturation and spectral Tilt"
+    DESCRIPTION "Character EQ: 8-band EQ with Heat saturation, spectral Tilt, dynamic EQ and mid/side processing"
     PLUGIN_MANUFACTURER_CODE Hdrm
     PLUGIN_CODE QEQ1
     BUNDLE_ID com.headroomaudio.qeq
