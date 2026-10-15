@@ -11,6 +11,9 @@ QEQProcessor::QEQProcessor()
                           .withOutput ("Output",    juce::AudioChannelSet::stereo(), true)),
       apvts (*this, nullptr, "Parameters", createParameterLayout())
 {
+    // See prepareDSP(): the DSP must be valid from construction, because a
+    // host may call processBlock before prepareToPlay.
+    prepareDSP (44100.0, 512);
 }
 
 QEQProcessor::~QEQProcessor() = default;
@@ -100,13 +103,13 @@ juce::AudioProcessorValueTreeState::ParameterLayout QEQProcessor::createParamete
 }
 
 //==============================================================================
-void QEQProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
+void QEQProcessor::prepareDSP (double sampleRate, int samplesPerBlock)
 {
     lastSampleRate = sampleRate;
 
     juce::dsp::ProcessSpec spec;
     spec.sampleRate       = sampleRate;
-    spec.maximumBlockSize = static_cast<juce::uint32> (samplesPerBlock);
+    spec.maximumBlockSize = static_cast<juce::uint32> (juce::jmax (1, samplesPerBlock));
     spec.numChannels      = 2; // always stereo-capable; mono uses ch 0
 
     for (int b = 0; b < kQEQNumBands; ++b)
@@ -125,11 +128,16 @@ void QEQProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     outputGain.prepare (spec);
     autoGainTrim.prepare (spec);
 
-    dryBuffer.setSize (2, samplesPerBlock, false, false, true);
+    dryBuffer.setSize (2, juce::jmax (1, samplesPerBlock), false, false, true);
 
     lastHeat = lastTilt = lastOutput = lastMix = -1.0f;
     lastAutoGain = false;
     autoGainSmoothDb = 0.0f;
+}
+
+void QEQProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
+{
+    prepareDSP (sampleRate, samplesPerBlock);
 }
 
 void QEQProcessor::releaseResources() {}
@@ -323,7 +331,7 @@ void QEQProcessor::rebuildBand (int band, float freqHz, float q, float gainDb,
 }
 
 //==============================================================================
-void QEQProcessor::processBand (int band, juce::AudioBuffer<float>& buffer,
+void QEQProcessor::processBand (int band, juce::dsp::AudioBlock<float>& mainBlock,
                                 const juce::AudioBuffer<float>& sidechain,
                                 bool hasSidechain, int numSamples, int numChannels)
 {
@@ -350,10 +358,10 @@ void QEQProcessor::processBand (int band, juce::AudioBuffer<float>& buffer,
         const bool useExternal = (dynSrc == QEQDynExternal) && hasSidechain;
 
         const float* detL = useExternal ? sidechain.getReadPointer (0)
-                                        : buffer.getReadPointer (0);
+                                        : mainBlock.getChannelPointer (0);
         const int detCh = useExternal ? sidechain.getNumChannels() : numChannels;
         const float* detR = (detCh > 1)
-            ? (useExternal ? sidechain.getReadPointer (1) : buffer.getReadPointer (1))
+            ? (useExternal ? sidechain.getReadPointer (1) : mainBlock.getChannelPointer (1))
             : detL;
         const int detN = useExternal ? sidechain.getNumSamples() : numSamples;
 
@@ -404,8 +412,8 @@ void QEQProcessor::processBand (int band, juce::AudioBuffer<float>& buffer,
 
     //---- M/S encode (in place: L=mid, R=side) ----
     const bool useMS = (ms == QEQMS_Mid || ms == QEQMS_Side) && numChannels > 1;
-    float* L = buffer.getWritePointer (0);
-    float* R = numChannels > 1 ? buffer.getWritePointer (1) : nullptr;
+    float* L = mainBlock.getChannelPointer (0);
+    float* R = numChannels > 1 ? mainBlock.getChannelPointer (1) : nullptr;
 
     if (useMS)
     {
@@ -418,21 +426,21 @@ void QEQProcessor::processBand (int band, juce::AudioBuffer<float>& buffer,
     }
 
     //---- run the stages ----
+    // mainBlock is already restricted to the prepared channel count, so the
+    // duplicators can never index past their internal filters.
     int chToProcess = -1; // -1 = all channels
     if (ms == QEQMS_Left || ms == QEQMS_Mid)        chToProcess = 0;
     else if (ms == QEQMS_Right || ms == QEQMS_Side) chToProcess = 1;
-
-    juce::dsp::AudioBlock<float> block (buffer);
 
     if (chToProcess < 0 || numChannels < 2)
     {
         for (int s = 0; s < bd.numStages; ++s)
             bd.stages[s].process (
-                juce::dsp::ProcessContextReplacing<float> (block));
+                juce::dsp::ProcessContextReplacing<float> (mainBlock));
     }
     else
     {
-        auto chBlock = block.getSingleChannelBlock ((size_t) chToProcess);
+        auto chBlock = mainBlock.getSingleChannelBlock ((size_t) chToProcess);
         juce::dsp::ProcessContextReplacing<float> ctx (chBlock);
         for (int s = 0; s < bd.numStages; ++s)
             bd.stages[s].process (ctx);
@@ -476,6 +484,12 @@ void QEQProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuf
     juce::ScopedNoDenormals noDenormals;
 
     const int numSamples  = buffer.getNumSamples();
+
+    // Defensive: never dereference channel pointers on an empty buffer.
+    // (A host should never send one, but crashing is not an option.)
+    if (numSamples <= 0 || buffer.getNumChannels() <= 0)
+        return;
+
     const int numChannels = juce::jmin (2, buffer.getNumChannels());
 
     // Sidechain bus (index 1). May be unconnected.
@@ -493,10 +507,18 @@ void QEQProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuf
     for (int ch = 0; ch < numChannels; ++ch)
         dryBuffer.copyFrom (ch, 0, buffer, ch, 0, numSamples);
 
+    // The host buffer may carry MORE channels than the main bus (the AU
+    // wrapper appends sidechain-bus channels to the same buffer). Every dsp
+    // object is prepared for 2 channels max, so restrict the processing
+    // block to the main-bus channels. (Feeding extra channels to the
+    // ProcessorDuplicators crashed Logic 2026-10-15.)
+    juce::dsp::AudioBlock<float> mainBlock (buffer);
+    auto dspBlock = mainBlock.getSubsetChannelBlock (0, (size_t) numChannels);
+
     //---- EQ bands ----
     for (int b = 0; b < kQEQNumBands; ++b)
         if (isBandAudible (b))
-            processBand (b, buffer, scBuffer, hasSidechain, numSamples, numChannels);
+            processBand (b, dspBlock, scBuffer, hasSidechain, numSamples, numChannels);
 
     //---- spectral tilt ----
     {
@@ -513,7 +535,7 @@ void QEQProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuf
             lastTilt = tilt;
         }
 
-        juce::dsp::AudioBlock<float> block (buffer);
+        juce::dsp::AudioBlock<float>& block = dspBlock;
         juce::dsp::ProcessContextReplacing<float> ctx (block);
         tiltLow.process (ctx);
         tiltHigh.process (ctx);
@@ -528,7 +550,7 @@ void QEQProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuf
             lastHeat = heat;
         }
 
-        juce::dsp::AudioBlock<float> block (buffer);
+        juce::dsp::AudioBlock<float>& block = dspBlock;
         heatShaper.process (juce::dsp::ProcessContextReplacing<float> (block));
     }
 
@@ -576,7 +598,7 @@ void QEQProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuf
         autoGainTrim.setGainDecibels (autoGainSmoothDb);
         lastAutoGain = autoOn;
 
-        juce::dsp::AudioBlock<float> block (buffer);
+        juce::dsp::AudioBlock<float>& block = dspBlock;
         autoGainTrim.process (juce::dsp::ProcessContextReplacing<float> (block));
     }
 
@@ -589,7 +611,7 @@ void QEQProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuf
             lastOutput = output;
         }
 
-        juce::dsp::AudioBlock<float> block (buffer);
+        juce::dsp::AudioBlock<float>& block = dspBlock;
         outputGain.process (juce::dsp::ProcessContextReplacing<float> (block));
     }
 

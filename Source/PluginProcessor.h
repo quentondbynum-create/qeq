@@ -261,6 +261,14 @@ public:
 private:
     juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
+    // Prepare every DSP object (band stages, tilt, heat, gains). Called from
+    // the constructor with a default spec AND from prepareToPlay with the
+    // host's spec, so the plugin is ALWAYS in a valid processing state —
+    // even if the host calls processBlock before prepareToPlay (the JUCE AU
+    // wrapper's Render path has no "prepared" guard; this exact hole crashed
+    // Logic Pro on 2026-10-15 with a null IIR::Filter dereference).
+    void prepareDSP (double sampleRate, int samplesPerBlock);
+
     float getRawFloat (const juce::String& paramId) const
     {
         if (auto* p = apvts.getRawParameterValue (paramId))
@@ -280,7 +288,12 @@ private:
                       int shape, int slopeChoice);
 
     // Process one band (M/S handling + dynamic EQ + stages).
-    void processBand (int band, juce::AudioBuffer<float>& buffer,
+    // NOTE: `mainBlock` must be restricted to the main-bus channels only.
+    // The host buffer may carry extra channels (the AU wrapper appends
+    // sidechain-bus channels to the same buffer); feeding those to the
+    // stereo-prepared ProcessorDuplicators reads past their internal
+    // filter array -> null IIR::Filter dereference (Logic crash 2026-10-15).
+    void processBand (int band, juce::dsp::AudioBlock<float>& mainBlock,
                       const juce::AudioBuffer<float>& sidechain,
                       bool hasSidechain, int numSamples, int numChannels);
 
