@@ -25,32 +25,33 @@ juce::AudioProcessorValueTreeState::ParameterLayout QEQProcessor::createParamete
     {
         return juce::NormalisableRange<float> (lo, hi, 0.1f);
     };
+    auto qRange = []()
+    {
+        return juce::NormalisableRange<float> (0.1f, 10.0f, 0.01f, 0.5f);
+    };
 
-    layout.add (std::make_unique<juce::AudioParameterFloat> (
-        kLowFreq, "Low Freq", freqRange (20.0f, 500.0f), 120.0f));
-    layout.add (std::make_unique<juce::AudioParameterFloat> (
-        kLowGain, "Low Gain", gainRange (-15.0f, 15.0f), 0.0f));
+    const char* bandNames[4] = { "Band 1", "Band 2", "Band 3", "Band 4" };
+    const float defaultFreqs[4] = { 120.0f, 500.0f, 3000.0f, 10000.0f };
+    const int   defaultShapes[4] = { QEQLowShelf, QEQBell, QEQBell, QEQHighShelf };
 
-    layout.add (std::make_unique<juce::AudioParameterFloat> (
-        kMid1Freq, "Mid 1 Freq", freqRange (100.0f, 2000.0f), 500.0f));
-    layout.add (std::make_unique<juce::AudioParameterFloat> (
-        kMid1Gain, "Mid 1 Gain", gainRange (-15.0f, 15.0f), 0.0f));
-    layout.add (std::make_unique<juce::AudioParameterFloat> (
-        kMid1Q, "Mid 1 Q",
-        juce::NormalisableRange<float> (0.3f, 6.0f, 0.01f, 0.5f), 1.0f));
+    for (int b = 0; b < 4; ++b)
+    {
+        const juce::String bn (bandNames[b]);
 
-    layout.add (std::make_unique<juce::AudioParameterFloat> (
-        kMid2Freq, "Mid 2 Freq", freqRange (800.0f, 12000.0f), 3000.0f));
-    layout.add (std::make_unique<juce::AudioParameterFloat> (
-        kMid2Gain, "Mid 2 Gain", gainRange (-15.0f, 15.0f), 0.0f));
-    layout.add (std::make_unique<juce::AudioParameterFloat> (
-        kMid2Q, "Mid 2 Q",
-        juce::NormalisableRange<float> (0.3f, 6.0f, 0.01f, 0.5f), 1.0f));
-
-    layout.add (std::make_unique<juce::AudioParameterFloat> (
-        kHighFreq, "High Freq", freqRange (3000.0f, 20000.0f), 10000.0f));
-    layout.add (std::make_unique<juce::AudioParameterFloat> (
-        kHighGain, "High Gain", gainRange (-15.0f, 15.0f), 0.0f));
+        layout.add (std::make_unique<juce::AudioParameterFloat> (
+            kBandFreqIds[b], bn + " Freq", freqRange (20.0f, 20000.0f), defaultFreqs[b]));
+        layout.add (std::make_unique<juce::AudioParameterFloat> (
+            kBandGainIds[b], bn + " Gain", gainRange (-15.0f, 15.0f), 0.0f));
+        layout.add (std::make_unique<juce::AudioParameterFloat> (
+            kBandQIds[b], bn + " Q", qRange(), 1.0f));
+        layout.add (std::make_unique<juce::AudioParameterChoice> (
+            kBandShapeIds[b], bn + " Shape",
+            getQEQBandShapeChoices(), defaultShapes[b]));
+        layout.add (std::make_unique<juce::AudioParameterBool> (
+            kBandSoloIds[b], bn + " Solo", false));
+        layout.add (std::make_unique<juce::AudioParameterBool> (
+            kBandBypassIds[b], bn + " Bypass", false));
+    }
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         kHeat, "Heat",
@@ -78,10 +79,11 @@ void QEQProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     chain.prepare (spec);
 
     // Force a full coefficient refresh on the first block.
-    lastLowFreq = lastLowGain = -1.0f;
-    lastMid1Freq = lastMid1Gain = lastMid1Q = -1.0f;
-    lastMid2Freq = lastMid2Gain = lastMid2Q = -1.0f;
-    lastHighFreq = lastHighGain = -1.0f;
+    for (int b = 0; b < 4; ++b)
+    {
+        lastBandFreq[b] = lastBandGain[b] = lastBandQ[b] = -1.0f;
+        lastBandShape[b] = -1;
+    }
     lastHeat = lastTilt = lastOutput = -1.0f;
     updateFilters();
 }
@@ -131,60 +133,155 @@ void QEQProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuf
 }
 
 //==============================================================================
+juce::dsp::IIR::Coefficients<float>::Ptr QEQProcessor::makeBandCoefficients (
+    int shape, double sampleRate, float freqHz, float q, float gainDb)
+{
+    using Coeffs = juce::dsp::IIR::Coefficients<float>;
+
+    const float f  = juce::jlimit (20.0f, 20000.0f, freqHz);
+    const float qq = juce::jmax (0.05f, q);
+    const float g  = juce::Decibels::decibelsToGain (gainDb);
+
+    switch (juce::jlimit (0, QEQNumShapes - 1, shape))
+    {
+        case QEQLowShelf:  return Coeffs::makeLowShelf  (sampleRate, f, qq, g);
+        case QEQHighShelf: return Coeffs::makeHighShelf (sampleRate, f, qq, g);
+        case QEQLowPass:   return Coeffs::makeLowPass   (sampleRate, f, qq);
+        case QEQHighPass:  return Coeffs::makeHighPass  (sampleRate, f, qq);
+        case QEQNotch:
+        {
+            // JUCE's notch has no gain control; scale the numerator so the
+            // gain knob still does something musical (uniform dB shift).
+            auto c = Coeffs::makeNotch (sampleRate, f, qq);
+            if (c != nullptr)
+            {
+                float* co = c->coefficients.begin(); // b0,b1,b2,a0,a1,a2
+                co[0] *= g; co[1] *= g; co[2] *= g;
+            }
+            return c;
+        }
+        case QEQBandPass:
+        {
+            // JUCE's bandpass is normalised to 0 dB peak; scale the numerator
+            // so the peak sits at the gain knob's value.
+            auto c = Coeffs::makeBandPass (sampleRate, f, qq);
+            if (c != nullptr)
+            {
+                float* co = c->coefficients.begin();
+                co[0] *= g; co[1] *= g; co[2] *= g;
+            }
+            return c;
+        }
+        case QEQBell:
+        default:           return Coeffs::makePeakFilter (sampleRate, f, qq, g);
+    }
+}
+
+void QEQProcessor::setBandCoefficients (
+    int band, juce::dsp::IIR::Coefficients<float>::Ptr c)
+{
+    if (c == nullptr)
+        return;
+
+    switch (band)
+    {
+        case 0: *chain.get<Band0>().coefficients = *c; break;
+        case 1: *chain.get<Band1>().coefficients = *c; break;
+        case 2: *chain.get<Band2>().coefficients = *c; break;
+        case 3: *chain.get<Band3>().coefficients = *c; break;
+        default: break;
+    }
+}
+
+void QEQProcessor::setBandBypassed (int band, bool shouldBypass)
+{
+    switch (band)
+    {
+        case 0: chain.setBypassed<Band0> (shouldBypass); break;
+        case 1: chain.setBypassed<Band1> (shouldBypass); break;
+        case 2: chain.setBypassed<Band2> (shouldBypass); break;
+        case 3: chain.setBypassed<Band3> (shouldBypass); break;
+        default: break;
+    }
+}
+
+//==============================================================================
+int QEQProcessor::getBandShape (int band) const
+{
+    band = juce::jlimit (0, 3, band);
+    return juce::jlimit (0, QEQNumShapes - 1,
+                         (int) getRawFloat (kBandShapeIds[band]));
+}
+
+bool QEQProcessor::getBandSolo (int band) const
+{
+    return getRawFloat (kBandSoloIds[juce::jlimit (0, 3, band)]) > 0.5f;
+}
+
+bool QEQProcessor::getBandBypassed (int band) const
+{
+    return getRawFloat (kBandBypassIds[juce::jlimit (0, 3, band)]) > 0.5f;
+}
+
+bool QEQProcessor::isBandAudible (int band) const
+{
+    band = juce::jlimit (0, 3, band);
+
+    bool anySolo = false;
+    for (int b = 0; b < 4; ++b)
+        if (getBandSolo (b)) { anySolo = true; break; }
+
+    if (anySolo)
+        return getBandSolo (band);
+    return ! getBandBypassed (band);
+}
+
+//==============================================================================
 void QEQProcessor::updateFilters()
 {
-    const float lowFreq  = apvts.getRawParameterValue (kLowFreq)->load();
-    const float lowGain  = apvts.getRawParameterValue (kLowGain)->load();
-    const float mid1Freq = apvts.getRawParameterValue (kMid1Freq)->load();
-    const float mid1Gain = apvts.getRawParameterValue (kMid1Gain)->load();
-    const float mid1Q    = apvts.getRawParameterValue (kMid1Q)->load();
-    const float mid2Freq = apvts.getRawParameterValue (kMid2Freq)->load();
-    const float mid2Gain = apvts.getRawParameterValue (kMid2Gain)->load();
-    const float mid2Q    = apvts.getRawParameterValue (kMid2Q)->load();
-    const float highFreq = apvts.getRawParameterValue (kHighFreq)->load();
-    const float highGain = apvts.getRawParameterValue (kHighGain)->load();
-    const float heat     = apvts.getRawParameterValue (kHeat)->load();
-    const float tilt     = apvts.getRawParameterValue (kTilt)->load();
-    const float output   = apvts.getRawParameterValue (kOutput)->load();
+    float freq[4], gain[4], q[4];
+    int   shape[4];
+    bool  solo[4], bypass[4];
+
+    for (int b = 0; b < 4; ++b)
+    {
+        freq[b]   = getRawFloat (kBandFreqIds[b]);
+        gain[b]   = getRawFloat (kBandGainIds[b]);
+        q[b]      = getRawFloat (kBandQIds[b]);
+        shape[b]  = juce::jlimit (0, QEQNumShapes - 1,
+                                  (int) getRawFloat (kBandShapeIds[b]));
+        solo[b]   = getRawFloat (kBandSoloIds[b]) > 0.5f;
+        bypass[b] = getRawFloat (kBandBypassIds[b]) > 0.5f;
+    }
+
+    const float heat   = getRawFloat (kHeat);
+    const float tilt   = getRawFloat (kTilt);
+    const float output = getRawFloat (kOutput);
 
     const double sr = lastSampleRate;
-    const float shelfQ = 0.7071f; // Butterworth-ish shelf slope
+    const bool anySolo = solo[0] || solo[1] || solo[2] || solo[3];
 
-    if (lowFreq != lastLowFreq || lowGain != lastLowGain)
+    for (int b = 0; b < 4; ++b)
     {
-        *chain.get<LowShelf>().coefficients =
-            *juce::dsp::IIR::Coefficients<float>::makeLowShelf (
-                sr, lowFreq, shelfQ, juce::Decibels::decibelsToGain (lowGain));
-        lastLowFreq = lowFreq; lastLowGain = lowGain;
-    }
+        // Solo wins: when any band is soloed, only soloed bands are audible.
+        setBandBypassed (b, anySolo ? ! solo[b] : bypass[b]);
 
-    if (mid1Freq != lastMid1Freq || mid1Gain != lastMid1Gain || mid1Q != lastMid1Q)
-    {
-        *chain.get<Mid1>().coefficients =
-            *juce::dsp::IIR::Coefficients<float>::makePeakFilter (
-                sr, mid1Freq, mid1Q, juce::Decibels::decibelsToGain (mid1Gain));
-        lastMid1Freq = mid1Freq; lastMid1Gain = mid1Gain; lastMid1Q = mid1Q;
-    }
-
-    if (mid2Freq != lastMid2Freq || mid2Gain != lastMid2Gain || mid2Q != lastMid2Q)
-    {
-        *chain.get<Mid2>().coefficients =
-            *juce::dsp::IIR::Coefficients<float>::makePeakFilter (
-                sr, mid2Freq, mid2Q, juce::Decibels::decibelsToGain (mid2Gain));
-        lastMid2Freq = mid2Freq; lastMid2Gain = mid2Gain; lastMid2Q = mid2Q;
-    }
-
-    if (highFreq != lastHighFreq || highGain != lastHighGain)
-    {
-        *chain.get<HighShelf>().coefficients =
-            *juce::dsp::IIR::Coefficients<float>::makeHighShelf (
-                sr, highFreq, shelfQ, juce::Decibels::decibelsToGain (highGain));
-        lastHighFreq = highFreq; lastHighGain = highGain;
+        if (freq[b]  != lastBandFreq[b]
+            || gain[b]  != lastBandGain[b]
+            || q[b]     != lastBandQ[b]
+            || shape[b] != lastBandShape[b])
+        {
+            setBandCoefficients (b, makeBandCoefficients (
+                shape[b], sr, freq[b], q[b], gain[b]));
+            lastBandFreq[b] = freq[b]; lastBandGain[b] = gain[b];
+            lastBandQ[b] = q[b];       lastBandShape[b] = shape[b];
+        }
     }
 
     if (tilt != lastTilt)
     {
         // Global spectral tilt: lows duck while highs lift (or vice versa).
+        const float shelfQ = 0.7071f;
         *chain.get<TiltLow>().coefficients =
             *juce::dsp::IIR::Coefficients<float>::makeLowShelf (
                 sr, 400.0, shelfQ, juce::Decibels::decibelsToGain (-tilt));
@@ -227,26 +324,37 @@ static float biquadMagnitudeDb (const juce::Array<float>& co, double frequencyHz
     return juce::Decibels::gainToDecibels (mag);
 }
 
+float QEQProcessor::getBandMagnitudeResponseDb (int bandIndex, float frequencyHz) const
+{
+    bandIndex = juce::jlimit (0, 3, bandIndex);
+    const float f = juce::jlimit (20.0f, 20000.0f, frequencyHz);
+
+    auto c = makeBandCoefficients (getBandShape (bandIndex), lastSampleRate,
+                                   getRawFloat (kBandFreqIds[bandIndex]),
+                                   getRawFloat (kBandQIds[bandIndex]),
+                                   getRawFloat (kBandGainIds[bandIndex]));
+
+    if (c == nullptr)
+        return 0.0f;
+
+    return biquadMagnitudeDb (c->coefficients, f, lastSampleRate);
+}
+
 float QEQProcessor::getMagnitudeResponseDb (float frequencyHz) const
 {
     const double sr = lastSampleRate;
     const float f = juce::jlimit (20.0f, 20000.0f, frequencyHz);
 
-    const float lowFreq  = apvts.getRawParameterValue (kLowFreq)->load();
-    const float lowGain  = apvts.getRawParameterValue (kLowGain)->load();
-    const float mid1Freq = apvts.getRawParameterValue (kMid1Freq)->load();
-    const float mid1Gain = apvts.getRawParameterValue (kMid1Gain)->load();
-    const float mid1Q    = apvts.getRawParameterValue (kMid1Q)->load();
-    const float mid2Freq = apvts.getRawParameterValue (kMid2Freq)->load();
-    const float mid2Gain = apvts.getRawParameterValue (kMid2Gain)->load();
-    const float mid2Q    = apvts.getRawParameterValue (kMid2Q)->load();
-    const float highFreq = apvts.getRawParameterValue (kHighFreq)->load();
-    const float highGain = apvts.getRawParameterValue (kHighGain)->load();
-    const float tilt     = apvts.getRawParameterValue (kTilt)->load();
-    const float output   = apvts.getRawParameterValue (kOutput)->load();
+    const float tilt   = getRawFloat (kTilt);
+    const float output = getRawFloat (kOutput);
 
     const float shelfQ = 0.7071f;
     float totalDb = output;
+
+    // Only audible bands (solo/bypass resolved) contribute to the display.
+    for (int b = 0; b < 4; ++b)
+        if (isBandAudible (b))
+            totalDb += getBandMagnitudeResponseDb (b, f);
 
     auto addFilter = [&] (juce::dsp::IIR::Coefficients<float>::Ptr&& c)
     {
@@ -254,62 +362,11 @@ float QEQProcessor::getMagnitudeResponseDb (float frequencyHz) const
     };
 
     addFilter (juce::dsp::IIR::Coefficients<float>::makeLowShelf (
-        sr, lowFreq, shelfQ, juce::Decibels::decibelsToGain (lowGain)));
-    addFilter (juce::dsp::IIR::Coefficients<float>::makePeakFilter (
-        sr, mid1Freq, mid1Q, juce::Decibels::decibelsToGain (mid1Gain)));
-    addFilter (juce::dsp::IIR::Coefficients<float>::makePeakFilter (
-        sr, mid2Freq, mid2Q, juce::Decibels::decibelsToGain (mid2Gain)));
-    addFilter (juce::dsp::IIR::Coefficients<float>::makeHighShelf (
-        sr, highFreq, shelfQ, juce::Decibels::decibelsToGain (highGain)));
-    addFilter (juce::dsp::IIR::Coefficients<float>::makeLowShelf (
         sr, 400.0, shelfQ, juce::Decibels::decibelsToGain (-tilt)));
     addFilter (juce::dsp::IIR::Coefficients<float>::makeHighShelf (
         sr, 4000.0, shelfQ, juce::Decibels::decibelsToGain (tilt)));
 
     return totalDb;
-}
-
-float QEQProcessor::getBandMagnitudeResponseDb (int bandIndex, float frequencyHz) const
-{
-    const double sr = lastSampleRate;
-    const float f = juce::jlimit (20.0f, 20000.0f, frequencyHz);
-    const float shelfQ = 0.7071f;
-
-    juce::dsp::IIR::Coefficients<float>::Ptr c;
-
-    switch (bandIndex)
-    {
-        case 0:
-            c = juce::dsp::IIR::Coefficients<float>::makeLowShelf (
-                sr, apvts.getRawParameterValue (kLowFreq)->load(), shelfQ,
-                juce::Decibels::decibelsToGain (
-                    apvts.getRawParameterValue (kLowGain)->load()));
-            break;
-        case 1:
-            c = juce::dsp::IIR::Coefficients<float>::makePeakFilter (
-                sr, apvts.getRawParameterValue (kMid1Freq)->load(),
-                apvts.getRawParameterValue (kMid1Q)->load(),
-                juce::Decibels::decibelsToGain (
-                    apvts.getRawParameterValue (kMid1Gain)->load()));
-            break;
-        case 2:
-            c = juce::dsp::IIR::Coefficients<float>::makePeakFilter (
-                sr, apvts.getRawParameterValue (kMid2Freq)->load(),
-                apvts.getRawParameterValue (kMid2Q)->load(),
-                juce::Decibels::decibelsToGain (
-                    apvts.getRawParameterValue (kMid2Gain)->load()));
-            break;
-        case 3:
-            c = juce::dsp::IIR::Coefficients<float>::makeHighShelf (
-                sr, apvts.getRawParameterValue (kHighFreq)->load(), shelfQ,
-                juce::Decibels::decibelsToGain (
-                    apvts.getRawParameterValue (kHighGain)->load()));
-            break;
-        default:
-            return 0.0f;
-    }
-
-    return biquadMagnitudeDb (c->coefficients, f, sr);
 }
 
 //==============================================================================

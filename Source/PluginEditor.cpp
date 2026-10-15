@@ -12,6 +12,9 @@ namespace
     const juce::Colour kTotalCurve= juce::Colour (0xffF5F5F7);
     const juce::Colour kSpecFill  = juce::Colour (0xff1E6F8E);
     const juce::Colour kSpecLine  = juce::Colour (0xff4CC9F0);
+    const juce::Colour kSoloOn    = juce::Colour (0xffFFD500);
+    const juce::Colour kBypassOn  = juce::Colour (0xffFF6B35);
+    const juce::Colour kHeartOn   = juce::Colour (0xffFF3B5C);
 
     constexpr float kMinFreq = 20.0f;
     constexpr float kMaxFreq = 20000.0f;
@@ -33,6 +36,67 @@ namespace
         return juce::String ((int) std::round (f));
     }
 }
+
+//==============================================================================
+// Factory presets.
+const QEQFactoryPreset QEQEditor::factoryPresets[8] =
+{
+    { "Init",
+      { 120.0f, 500.0f, 3000.0f, 10000.0f },
+      { 0.0f, 0.0f, 0.0f, 0.0f },
+      { 0.71f, 1.0f, 1.0f, 0.71f },
+      { QEQLowShelf, QEQBell, QEQBell, QEQHighShelf },
+      0.0f, 0.0f, 0.0f },
+
+    { "Vocal Shine",
+      { 80.0f, 250.0f, 3000.0f, 10000.0f },
+      { 0.0f, -2.0f, 3.0f, 5.0f },
+      { 0.71f, 1.0f, 1.0f, 0.71f },
+      { QEQHighPass, QEQBell, QEQBell, QEQHighShelf },
+      8.0f, 0.0f, 0.0f },
+
+    { "Bass Punch",
+      { 120.0f, 200.0f, 2500.0f, 8000.0f },
+      { 5.0f, -2.0f, 2.0f, 0.0f },
+      { 0.71f, 1.0f, 1.0f, 0.71f },
+      { QEQLowShelf, QEQBell, QEQBell, QEQHighShelf },
+      15.0f, 0.0f, 0.0f },
+
+    { "Telephone",
+      { 400.0f, 1000.0f, 2000.0f, 3400.0f },
+      { 0.0f, 5.0f, 3.0f, 0.0f },
+      { 0.71f, 1.5f, 2.0f, 0.71f },
+      { QEQHighPass, QEQBell, QEQBell, QEQLowPass },
+      20.0f, 0.0f, 0.0f },
+
+    { "Air Lift",
+      { 120.0f, 500.0f, 3000.0f, 12000.0f },
+      { 0.0f, 0.0f, 0.0f, 7.0f },
+      { 0.71f, 1.0f, 1.0f, 0.71f },
+      { QEQLowShelf, QEQBell, QEQBell, QEQHighShelf },
+      0.0f, 1.0f, 0.0f },
+
+    { "Mud Remover",
+      { 90.0f, 280.0f, 500.0f, 10000.0f },
+      { 0.0f, -4.0f, -2.0f, 0.0f },
+      { 0.71f, 1.4f, 1.0f, 0.71f },
+      { QEQHighPass, QEQBell, QEQBell, QEQHighShelf },
+      0.0f, 0.0f, 0.0f },
+
+    { "Warmth",
+      { 150.0f, 400.0f, 3000.0f, 10000.0f },
+      { 2.5f, 1.0f, 0.0f, 0.0f },
+      { 0.71f, 0.8f, 1.0f, 0.71f },
+      { QEQLowShelf, QEQBell, QEQBell, QEQHighShelf },
+      30.0f, -2.5f, 0.0f },
+
+    { "Smile Curve",
+      { 100.0f, 1000.0f, 3000.0f, 10000.0f },
+      { 4.0f, -3.0f, 0.0f, 4.0f },
+      { 0.71f, 0.7f, 1.0f, 0.71f },
+      { QEQLowShelf, QEQBell, QEQBell, QEQHighShelf },
+      5.0f, 0.0f, 0.0f },
+};
 
 //==============================================================================
 EQDisplay::EQDisplay (QEQProcessor& p) : processor (p)
@@ -114,6 +178,20 @@ void EQDisplay::setParamValue (const char* paramId, float value)
     }
 }
 
+void EQDisplay::setChoiceParam (const char* paramId, int choiceIndex)
+{
+    if (auto* p = dynamic_cast<juce::AudioParameterChoice*> (
+            processor.apvts.getParameter (paramId)))
+        p->setValueNotifyingHost (p->convertTo0to1 ((float) choiceIndex));
+}
+
+void EQDisplay::setBoolParam (const char* paramId, bool value)
+{
+    if (auto* p = dynamic_cast<juce::AudioParameterBool*> (
+            processor.apvts.getParameter (paramId)))
+        p->setValueNotifyingHost (value ? 1.0f : 0.0f);
+}
+
 int EQDisplay::bandAtPosition (juce::Point<float> pos) const
 {
     for (int b = 0; b < 4; ++b)
@@ -124,6 +202,39 @@ int EQDisplay::bandAtPosition (juce::Point<float> pos) const
             return b;
     }
     return -1;
+}
+
+void EQDisplay::showBandMenu (int band, juce::Point<int> screenPos)
+{
+    const int currentShape = processor.getBandShape (band);
+
+    juce::PopupMenu shapeMenu;
+    for (int s = 0; s < QEQNumShapes; ++s)
+        shapeMenu.addItem (100 + s, getQEQBandShapeName (s),
+                           true, s == currentShape);
+
+    juce::PopupMenu menu;
+    menu.addSubMenu ("Shape", shapeMenu);
+    menu.addSeparator();
+    menu.addItem (1, "Solo", true, processor.getBandSolo (band));
+    menu.addItem (2, "Bypass", true, processor.getBandBypassed (band));
+    menu.addItem (3, "Reset Gain");
+
+    menu.showMenuAsync (
+        juce::PopupMenu::Options().withTargetScreenArea (
+            juce::Rectangle<int> (screenPos.x, screenPos.y, 1, 1)),
+        [this, band] (int result)
+        {
+            const auto& info = getQEQBandInfo (band);
+            if (result >= 100)
+                setChoiceParam (info.shapeParam, result - 100);
+            else if (result == 1)
+                setBoolParam (info.soloParam, ! processor.getBandSolo (band));
+            else if (result == 2)
+                setBoolParam (info.bypassParam, ! processor.getBandBypassed (band));
+            else if (result == 3)
+                setParamValue (info.gainParam, 0.0f);
+        });
 }
 
 //==============================================================================
@@ -285,12 +396,13 @@ void EQDisplay::paint (juce::Graphics& g)
         return p;
     };
 
-    // Per-band contributions (thin, band color, 45% alpha).
+    // Per-band contributions (thin, band color; dimmed when inaudible).
     for (int b = 0; b < 4; ++b)
     {
+        const bool audible = processor.isBandAudible (b);
         auto p = buildCurve ([this, b] (float f)
                              { return processor.getBandMagnitudeResponseDb (b, f); });
-        g.setColour (getQEQBandInfo (b).colour.withAlpha (0.45f));
+        g.setColour (getQEQBandInfo (b).colour.withAlpha (audible ? 0.45f : 0.12f));
         g.strokePath (p, juce::PathStrokeType (1.5f));
     }
 
@@ -318,27 +430,43 @@ void EQDisplay::paint (juce::Graphics& g)
         const juce::Point<float> c (freqToX (getBandFreq (b)),
                                     dbToY (getBandGain (b)));
         const bool selected = (b == selectedBand);
+        const bool audible  = processor.isBandAudible (b);
+        const bool soloed   = processor.getBandSolo (b);
+        const float alpha   = audible ? 1.0f : 0.35f;
 
         if (selected)
         {
-            g.setColour (info.colour.withAlpha (0.35f));
+            g.setColour (info.colour.withAlpha (0.35f * alpha));
             g.fillEllipse (c.x - kHandleRadius - 4.0f, c.y - kHandleRadius - 4.0f,
                            (kHandleRadius + 4.0f) * 2.0f, (kHandleRadius + 4.0f) * 2.0f);
         }
 
-        g.setColour (info.colour);
+        g.setColour (info.colour.withAlpha (alpha));
         g.fillEllipse (c.x - kHandleRadius, c.y - kHandleRadius,
                        kHandleRadius * 2.0f, kHandleRadius * 2.0f);
-        g.setColour (kTotalCurve.withAlpha (0.9f));
+        g.setColour (kTotalCurve.withAlpha (0.9f * alpha));
         g.drawEllipse (c.x - kHandleRadius, c.y - kHandleRadius,
                        kHandleRadius * 2.0f, kHandleRadius * 2.0f, 1.5f);
 
-        g.setColour (juce::Colours::white);
+        g.setColour (juce::Colours::white.withAlpha (alpha));
         g.setFont (juce::Font (11.0f, juce::Font::bold));
         g.drawText (juce::String (b + 1),
                     (int) (c.x - kHandleRadius), (int) (c.y - kHandleRadius),
                     (int) (kHandleRadius * 2.0f), (int) (kHandleRadius * 2.0f),
                     juce::Justification::centred, false);
+
+        // Solo badge.
+        if (soloed)
+        {
+            const float bx = c.x + kHandleRadius - 5.0f;
+            const float by = c.y - kHandleRadius - 5.0f;
+            g.setColour (kSoloOn);
+            g.fillEllipse (bx, by, 16.0f, 16.0f);
+            g.setColour (juce::Colours::black);
+            g.setFont (juce::Font (10.0f, juce::Font::bold));
+            g.drawText ("S", (int) bx, (int) by, 16, 16,
+                        juce::Justification::centred, false);
+        }
     }
 
     g.setColour (kGrid);
@@ -349,17 +477,24 @@ void EQDisplay::paint (juce::Graphics& g)
 void EQDisplay::mouseDown (const juce::MouseEvent& e)
 {
     const int band = bandAtPosition (e.position);
-    if (band >= 0)
+    if (band < 0)
+        return;
+
+    // Right-click: band options menu.
+    if (e.mods.isPopupMenu())
     {
-        selectedBand = band;
-        draggedBand = band;
-        dragStartPos = e.position;
-        dragStartFreq = getBandFreq (band);
-        dragStartGain = getBandGain (band);
-        if (onBandSelected)
-            onBandSelected (band);
-        repaint();
+        showBandMenu (band, e.getScreenPosition());
+        return;
     }
+
+    selectedBand = band;
+    draggedBand = band;
+    dragStartPos = e.position;
+    dragStartFreq = getBandFreq (band);
+    dragStartGain = getBandGain (band);
+    if (onBandSelected)
+        onBandSelected (band);
+    repaint();
 }
 
 void EQDisplay::mouseDrag (const juce::MouseEvent& e)
@@ -395,11 +530,7 @@ void EQDisplay::mouseWheelMove (const juce::MouseEvent& e,
     if (band < 0)
         return;
 
-    const char* qId = getQEQBandInfo (band).qParam;
-    if (qId == nullptr)
-        return; // shelves have no Q
-
-    if (auto* p = getParam (qId))
+    if (auto* p = getParam (getQEQBandInfo (band).qParam))
     {
         const float norm = juce::jlimit (0.0f, 1.0f,
             p->convertTo0to1 (p->get()) + wheel.deltaY * 0.08f);
@@ -486,6 +617,49 @@ QEQEditor::QEQEditor (QEQProcessor& p)
     brandLabel.setColour (juce::Label::textColourId, kTextDim);
     addAndMakeVisible (brandLabel);
 
+    //---- preset menu ----
+    styleComboBox (presetBox);
+    presetBox.setTextWhenNothingSelected ("Presets");
+    presetBox.onChange = [this] { onPresetChosen(); };
+    addAndMakeVisible (presetBox);
+
+    prevPresetBtn.setButtonText (juce::String::fromUTF8 ("◀"));
+    styleToggleButton (prevPresetBtn, kGrid);
+    prevPresetBtn.onClick = [this] { goToPreset (-1); };
+    addAndMakeVisible (prevPresetBtn);
+
+    nextPresetBtn.setButtonText (juce::String::fromUTF8 ("▶"));
+    styleToggleButton (nextPresetBtn, kGrid);
+    nextPresetBtn.onClick = [this] { goToPreset (1); };
+    addAndMakeVisible (nextPresetBtn);
+
+    heartBtn.setButtonText (juce::String::fromUTF8 ("♥"));
+    heartBtn.setClickingTogglesState (true);
+    heartBtn.setColour (juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
+    heartBtn.setColour (juce::TextButton::buttonOnColourId, juce::Colours::transparentBlack);
+    heartBtn.setColour (juce::TextButton::textColourOffId, kTextDim);
+    heartBtn.setColour (juce::TextButton::textColourOnId, kHeartOn);
+    heartBtn.onClick = [this]
+    {
+        if (currentPresetName.isEmpty())
+        {
+            heartBtn.setToggleState (false, juce::dontSendNotification);
+            return;
+        }
+        if (isFavorite (currentPresetName))
+            favoriteNames.removeString (currentPresetName);
+        else
+            favoriteNames.add (currentPresetName);
+        saveFavorites();
+        refreshPresetMenu();
+    };
+    addAndMakeVisible (heartBtn);
+
+    savePresetBtn.setButtonText ("SAVE");
+    styleToggleButton (savePresetBtn, kGrid);
+    savePresetBtn.onClick = [this] { promptSavePreset(); };
+    addAndMakeVisible (savePresetBtn);
+
     outputKnob.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
     outputKnob.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 56, 14);
     outputKnob.setTextValueSuffix (" dB");
@@ -523,6 +697,7 @@ QEQEditor::QEQEditor (QEQProcessor& p)
     makeCaption (freqCaption, "FREQ");
     makeCaption (gainCaption, "GAIN");
     makeCaption (qCaption, "Q");
+    makeCaption (shapeCaption, "SHAPE");
 
     styleHorizontalSlider (freqSlider, " Hz", kTextDim);
     styleHorizontalSlider (gainSlider, " dB", kTextDim);
@@ -530,6 +705,21 @@ QEQEditor::QEQEditor (QEQProcessor& p)
     addAndMakeVisible (freqSlider);
     addAndMakeVisible (gainSlider);
     addAndMakeVisible (qSlider);
+
+    for (int s = 0; s < QEQNumShapes; ++s)
+        shapeBox.addItem (getQEQBandShapeName (s), s + 1);
+    styleComboBox (shapeBox);
+    addAndMakeVisible (shapeBox);
+
+    soloBtn.setButtonText ("S");
+    soloBtn.setClickingTogglesState (true);
+    styleToggleButton (soloBtn, kSoloOn);
+    addAndMakeVisible (soloBtn);
+
+    bypassBtn.setButtonText ("B");
+    bypassBtn.setClickingTogglesState (true);
+    styleToggleButton (bypassBtn, kBypassOn);
+    addAndMakeVisible (bypassBtn);
 
     //---- bottom-right: signature ----
     signatureLabel.setText ("SIGNATURE", juce::dontSendNotification);
@@ -572,11 +762,31 @@ QEQEditor::QEQEditor (QEQProcessor& p)
     addAndMakeVisible (tiltCaption);
 
     selectBand (0);
+
+    scanUserPresets();
+    loadFavorites();
+    refreshPresetMenu();
+
+    // Watch shape params so the gain slider / band title follow shape changes.
+    for (int b = 0; b < 4; ++b)
+        processor.apvts.addParameterListener (QEQProcessor::kBandShapeIds[b], this);
 }
 
 QEQEditor::~QEQEditor()
 {
+    for (int b = 0; b < 4; ++b)
+        processor.apvts.removeParameterListener (QEQProcessor::kBandShapeIds[b], this);
+
     heatKnob.setLookAndFeel (nullptr);
+}
+
+void QEQEditor::parameterChanged (const juce::String& parameterID, float)
+{
+    if (selectedBand < 0)
+        return;
+
+    if (parameterID == juce::String (getQEQBandInfo (selectedBand).shapeParam))
+        updateBandDependentUI();
 }
 
 void QEQEditor::selectBand (int index)
@@ -587,24 +797,22 @@ void QEQEditor::selectBand (int index)
     freqAttachment.reset();
     gainAttachment.reset();
     qAttachment.reset();
+    shapeAttachment.reset();
+    soloAttachment.reset();
+    bypassAttachment.reset();
 
     freqAttachment = std::make_unique<SliderAttachment> (
         processor.apvts, info.freqParam, freqSlider);
     gainAttachment = std::make_unique<SliderAttachment> (
         processor.apvts, info.gainParam, gainSlider);
-
-    if (info.qParam != nullptr)
-    {
-        qAttachment = std::make_unique<SliderAttachment> (
-            processor.apvts, info.qParam, qSlider);
-        qSlider.setEnabled (true);
-        qSlider.setAlpha (1.0f);
-    }
-    else
-    {
-        qSlider.setEnabled (false);
-        qSlider.setAlpha (0.35f);
-    }
+    qAttachment = std::make_unique<SliderAttachment> (
+        processor.apvts, info.qParam, qSlider);
+    shapeAttachment = std::make_unique<ComboBoxAttachment> (
+        processor.apvts, info.shapeParam, shapeBox);
+    soloAttachment = std::make_unique<ButtonAttachment> (
+        processor.apvts, info.soloParam, soloBtn);
+    bypassAttachment = std::make_unique<ButtonAttachment> (
+        processor.apvts, info.bypassParam, bypassBtn);
 
     // Tint the band sliders to the selected band's color.
     for (auto* s : { &freqSlider, &gainSlider, &qSlider })
@@ -613,16 +821,31 @@ void QEQEditor::selectBand (int index)
         s->setColour (juce::Slider::thumbColourId, info.colour);
     }
 
-    bandTitleLabel.setText ("BAND " + juce::String (index + 1) + "  ·  "
-                            + juce::String (info.name).toUpperCase(),
-                            juce::dontSendNotification);
-    bandTitleLabel.setColour (juce::Label::textColourId, info.colour);
-
     if (index != selectedBand)
     {
         selectedBand = index;
         display.setSelectedBand (index);
     }
+
+    updateBandDependentUI();
+}
+
+void QEQEditor::updateBandDependentUI()
+{
+    if (selectedBand < 0)
+        return;
+
+    const int shape = processor.getBandShape (selectedBand);
+    const bool isPassFilter = (shape == QEQLowPass || shape == QEQHighPass);
+
+    gainSlider.setEnabled (! isPassFilter);
+    gainSlider.setAlpha (isPassFilter ? 0.35f : 1.0f);
+
+    const auto& info = getQEQBandInfo (selectedBand);
+    bandTitleLabel.setText ("BAND " + juce::String (selectedBand + 1) + "  ·  "
+                            + getQEQBandShapeName (shape).toUpperCase(),
+                            juce::dontSendNotification);
+    bandTitleLabel.setColour (juce::Label::textColourId, info.colour);
 }
 
 void QEQEditor::styleHorizontalSlider (juce::Slider& s, const juce::String& suffix,
@@ -639,6 +862,281 @@ void QEQEditor::styleHorizontalSlider (juce::Slider& s, const juce::String& suff
     s.setColour (juce::Slider::textBoxOutlineColourId, kGrid);
 }
 
+void QEQEditor::styleComboBox (juce::ComboBox& box)
+{
+    box.setColour (juce::ComboBox::backgroundColourId, kPanel);
+    box.setColour (juce::ComboBox::textColourId, kText);
+    box.setColour (juce::ComboBox::outlineColourId, kGrid);
+    box.setColour (juce::ComboBox::buttonColourId, kTextDim);
+    box.setColour (juce::ComboBox::arrowColourId, kTextDim);
+    box.setColour (juce::PopupMenu::backgroundColourId, juce::Colour (0xff1E1E26));
+    box.setColour (juce::PopupMenu::textColourId, kText);
+    box.setColour (juce::PopupMenu::highlightedBackgroundColourId, kGrid);
+    box.setColour (juce::PopupMenu::highlightedTextColourId, juce::Colours::white);
+}
+
+void QEQEditor::styleToggleButton (juce::TextButton& btn, const juce::Colour& onColour)
+{
+    btn.setColour (juce::TextButton::buttonColourId, kPanel);
+    btn.setColour (juce::TextButton::buttonOnColourId, onColour);
+    btn.setColour (juce::TextButton::textColourOffId, kTextDim);
+    btn.setColour (juce::TextButton::textColourOnId, juce::Colours::white);
+}
+
+//==============================================================================
+// Preset system.
+juce::File QEQEditor::getQEQDataDir() const
+{
+    return juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
+        .getChildFile ("Headroom Audio").getChildFile ("QEQ");
+}
+
+juce::File QEQEditor::getPresetDir() const
+{
+    return getQEQDataDir().getChildFile ("Presets");
+}
+
+juce::File QEQEditor::getFavoritesFile() const
+{
+    return getQEQDataDir().getChildFile ("favorites.txt");
+}
+
+void QEQEditor::scanUserPresets()
+{
+    userPresetNames.clear();
+
+    const auto dir = getPresetDir();
+    if (! dir.isDirectory())
+        return;
+
+    for (const auto& f : dir.findChildFiles (juce::File::findFiles, false,
+                                             "*.qeqpreset"))
+        userPresetNames.add (f.getFileNameWithoutExtension());
+
+    userPresetNames.sort (false);
+}
+
+void QEQEditor::loadFavorites()
+{
+    favoriteNames.clear();
+
+    const auto file = getFavoritesFile();
+    if (! file.existsAsFile())
+        return;
+
+    juce::StringArray lines;
+    file.readLines (lines);
+    for (auto& l : lines)
+    {
+        l = l.trim();
+        if (l.isNotEmpty() && ! favoriteNames.contains (l))
+            favoriteNames.add (l);
+    }
+}
+
+void QEQEditor::saveFavorites()
+{
+    getQEQDataDir().createDirectory();
+    getFavoritesFile().replaceWithText (favoriteNames.joinIntoString ("\n"));
+}
+
+bool QEQEditor::isFavorite (const juce::String& name) const
+{
+    return favoriteNames.contains (name);
+}
+
+void QEQEditor::refreshPresetMenu()
+{
+    presetBox.clear (juce::dontSendNotification);
+    presetMenuLookup.clear();
+
+    int itemId = 0;
+    auto addPresetItem = [&] (const juce::String& displayName,
+                              const juce::String& lookupName)
+    {
+        presetBox.addItem (displayName, ++itemId);
+        presetMenuLookup.add (lookupName);
+    };
+
+    bool needsSeparator = false;
+
+    if (favoriteNames.size() > 0)
+    {
+        presetBox.addSectionHeading (juce::String::fromUTF8 ("♥ Favorites"));
+        for (const auto& n : favoriteNames)
+            addPresetItem (juce::String::fromUTF8 ("♥ ") + n, n);
+        needsSeparator = true;
+    }
+
+    if (needsSeparator)
+        presetBox.addSeparator();
+
+    presetBox.addSectionHeading ("Factory");
+    for (const auto& fp : factoryPresets)
+        addPresetItem (fp.name, fp.name);
+
+    if (userPresetNames.size() > 0)
+    {
+        presetBox.addSeparator();
+        presetBox.addSectionHeading ("User");
+        for (const auto& n : userPresetNames)
+            addPresetItem (n, n);
+    }
+
+    if (currentPresetName.isNotEmpty())
+    {
+        const int idx = presetMenuLookup.indexOf (currentPresetName);
+        if (idx >= 0)
+            presetBox.setSelectedId (idx + 1, juce::dontSendNotification);
+    }
+
+    updateHeartButton();
+}
+
+void QEQEditor::onPresetChosen()
+{
+    const int id = presetBox.getSelectedId();
+    if (id <= 0 || id > presetMenuLookup.size())
+        return;
+
+    applyPresetByName (presetMenuLookup[id - 1]);
+}
+
+void QEQEditor::applyPresetByName (const juce::String& name)
+{
+    for (const auto& fp : factoryPresets)
+    {
+        if (name == juce::String (fp.name))
+        {
+            applyFactoryPreset (fp);
+            currentPresetName = name;
+            refreshPresetMenu();
+            return;
+        }
+    }
+
+    applyUserPreset (name);
+    currentPresetName = name;
+    refreshPresetMenu();
+}
+
+void QEQEditor::setFloatParam (const char* paramId, float value)
+{
+    if (auto* p = dynamic_cast<juce::AudioParameterFloat*> (
+            processor.apvts.getParameter (paramId)))
+    {
+        const auto& range = p->getNormalisableRange();
+        p->setValueNotifyingHost (
+            p->convertTo0to1 (juce::jlimit (range.start, range.end, value)));
+    }
+}
+
+void QEQEditor::applyFactoryPreset (const QEQFactoryPreset& p)
+{
+    for (int b = 0; b < 4; ++b)
+    {
+        const auto& info = getQEQBandInfo (b);
+        setFloatParam (info.freqParam, p.freq[b]);
+        setFloatParam (info.gainParam, p.gain[b]);
+        setFloatParam (info.qParam, p.q[b]);
+
+        if (auto* c = dynamic_cast<juce::AudioParameterChoice*> (
+                processor.apvts.getParameter (info.shapeParam)))
+            c->setValueNotifyingHost (c->convertTo0to1 ((float) p.shape[b]));
+
+        if (auto* s = dynamic_cast<juce::AudioParameterBool*> (
+                processor.apvts.getParameter (info.soloParam)))
+            s->setValueNotifyingHost (0.0f);
+
+        if (auto* bp = dynamic_cast<juce::AudioParameterBool*> (
+                processor.apvts.getParameter (info.bypassParam)))
+            bp->setValueNotifyingHost (0.0f);
+    }
+
+    setFloatParam (QEQProcessor::kHeat, p.heat);
+    setFloatParam (QEQProcessor::kTilt, p.tilt);
+    setFloatParam (QEQProcessor::kOutput, p.output);
+
+    updateBandDependentUI();
+}
+
+void QEQEditor::applyUserPreset (const juce::String& name)
+{
+    const auto file = getPresetDir().getChildFile (name + ".qeqpreset");
+
+    if (auto xml = juce::parseXML (file))
+    {
+        const auto tree = juce::ValueTree::fromXml (*xml);
+        if (tree.isValid())
+            processor.apvts.replaceState (tree);
+    }
+
+    updateBandDependentUI();
+}
+
+void QEQEditor::promptSavePreset()
+{
+    auto* alert = new juce::AlertWindow ("Save Preset",
+                                         "Enter a name for this preset:",
+                                         juce::AlertWindow::NoIcon);
+    alert->addTextEditor ("presetName", currentPresetName, "Preset name:");
+    alert->addButton ("Save",   1, juce::KeyPress (juce::KeyPress::returnKey));
+    alert->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+
+    alert->enterModalState (
+        true,
+        juce::ModalCallbackFunction::create ([this, alert] (int result)
+        {
+            std::unique_ptr<juce::AlertWindow> deleter (alert);
+
+            if (result != 1)
+                return;
+
+            const auto name = alert->getTextEditorContents ("presetName").trim();
+            if (name.isEmpty())
+                return;
+
+            const auto dir = getPresetDir();
+            dir.createDirectory();
+
+            if (auto state = processor.apvts.copyState(); state.isValid())
+                if (auto xml = std::unique_ptr<juce::XmlElement> (state.createXml()))
+                    xml->writeTo (dir.getChildFile (name + ".qeqpreset"));
+
+            currentPresetName = name;
+            scanUserPresets();
+            refreshPresetMenu();
+        }),
+        false);
+}
+
+void QEQEditor::goToPreset (int direction)
+{
+    juce::StringArray all;
+    for (const auto& fp : factoryPresets)
+        all.add (fp.name);
+    all.addArray (userPresetNames);
+
+    if (all.isEmpty())
+        return;
+
+    int idx = all.indexOf (currentPresetName);
+    if (idx < 0)
+        idx = (direction > 0) ? -1 : 0;
+
+    idx = (idx + direction + all.size()) % all.size();
+    applyPresetByName (all[idx]);
+}
+
+void QEQEditor::updateHeartButton()
+{
+    const bool fav = currentPresetName.isNotEmpty()
+                     && isFavorite (currentPresetName);
+    heartBtn.setToggleState (fav, juce::dontSendNotification);
+    heartBtn.setEnabled (currentPresetName.isNotEmpty());
+}
+
+//==============================================================================
 void QEQEditor::paint (juce::Graphics& g)
 {
     g.fillAll (kBg);
@@ -658,8 +1156,15 @@ void QEQEditor::paint (juce::Graphics& g)
 void QEQEditor::resized()
 {
     //---- top bar (0..56) ----
-    titleLabel.setBounds (16, 8, 110, 36);
-    brandLabel.setBounds (112, 24, 220, 18);
+    titleLabel.setBounds (16, 8, 76, 36);
+    brandLabel.setBounds (92, 24, 140, 18);
+
+    prevPresetBtn.setBounds (246, 14, 30, 28);
+    presetBox.setBounds (280, 12, 224, 32);
+    nextPresetBtn.setBounds (508, 14, 30, 28);
+    heartBtn.setBounds (542, 12, 34, 32);
+    savePresetBtn.setBounds (580, 14, 62, 28);
+
     outputKnob.setBounds (900 - 76, 2, 60, 44);
     outputCaption.setBounds (900 - 76, 44, 60, 12);
 
@@ -667,15 +1172,19 @@ void QEQEditor::resized()
     display.setBounds (8, 60, 884, 396);
 
     //---- bottom panel (464..612) ----
-    bandTitleLabel.setBounds (16, 466, 440, 22);
+    bandTitleLabel.setBounds (16, 464, 440, 20);
 
-    const int rowX = 16, capW = 56, sliderW = 330;
-    freqCaption.setBounds (rowX, 494, capW, 26);
-    freqSlider.setBounds (rowX + capW, 494, sliderW, 26);
-    gainCaption.setBounds (rowX, 526, capW, 26);
-    gainSlider.setBounds (rowX + capW, 526, sliderW, 26);
-    qCaption.setBounds (rowX, 558, capW, 26);
-    qSlider.setBounds (rowX + capW, 558, sliderW, 26);
+    shapeCaption.setBounds (16, 488, 52, 24);
+    shapeBox.setBounds (72, 488, 168, 24);
+    soloBtn.setBounds (248, 488, 46, 24);
+    bypassBtn.setBounds (298, 488, 46, 24);
+
+    freqCaption.setBounds (16, 516, 52, 22);
+    freqSlider.setBounds (72, 516, 330, 22);
+    gainCaption.setBounds (16, 540, 52, 22);
+    gainSlider.setBounds (72, 540, 330, 22);
+    qCaption.setBounds (16, 564, 52, 22);
+    qSlider.setBounds (72, 564, 330, 22);
 
     //---- signature ----
     signatureLabel.setBounds (492, 468, 200, 18);

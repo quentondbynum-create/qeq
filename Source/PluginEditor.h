@@ -11,8 +11,10 @@ struct QEQBandInfo
 {
     const char* freqParam;
     const char* gainParam;
-    const char* qParam;      // nullptr for shelf bands
-    const char* name;        // "Low Shelf", "Peak 1", ...
+    const char* qParam;
+    const char* shapeParam;
+    const char* soloParam;
+    const char* bypassParam;
     juce::Colour colour;
 };
 
@@ -20,17 +22,39 @@ inline const QEQBandInfo& getQEQBandInfo (int index)
 {
     static const QEQBandInfo bands[4] =
     {
-        { QEQProcessor::kLowFreq,  QEQProcessor::kLowGain,  nullptr,
-          "Low Shelf",  juce::Colour (0xffFF9F1C) },
-        { QEQProcessor::kMid1Freq, QEQProcessor::kMid1Gain, QEQProcessor::kMid1Q,
-          "Peak 1",     juce::Colour (0xff2EC4B6) },
-        { QEQProcessor::kMid2Freq, QEQProcessor::kMid2Gain, QEQProcessor::kMid2Q,
-          "Peak 2",     juce::Colour (0xff4CC9F0) },
-        { QEQProcessor::kHighFreq, QEQProcessor::kHighGain, nullptr,
-          "High Shelf", juce::Colour (0xffB5179E) },
+        { QEQProcessor::kBandFreqIds[0], QEQProcessor::kBandGainIds[0],
+          QEQProcessor::kBandQIds[0],
+          QEQProcessor::kBandShapeIds[0], QEQProcessor::kBandSoloIds[0],
+          QEQProcessor::kBandBypassIds[0], juce::Colour (0xffFF9F1C) },
+        { QEQProcessor::kBandFreqIds[1], QEQProcessor::kBandGainIds[1],
+          QEQProcessor::kBandQIds[1],
+          QEQProcessor::kBandShapeIds[1], QEQProcessor::kBandSoloIds[1],
+          QEQProcessor::kBandBypassIds[1], juce::Colour (0xff2EC4B6) },
+        { QEQProcessor::kBandFreqIds[2], QEQProcessor::kBandGainIds[2],
+          QEQProcessor::kBandQIds[2],
+          QEQProcessor::kBandShapeIds[2], QEQProcessor::kBandSoloIds[2],
+          QEQProcessor::kBandBypassIds[2], juce::Colour (0xff4CC9F0) },
+        { QEQProcessor::kBandFreqIds[3], QEQProcessor::kBandGainIds[3],
+          QEQProcessor::kBandQIds[3],
+          QEQProcessor::kBandShapeIds[3], QEQProcessor::kBandSoloIds[3],
+          QEQProcessor::kBandBypassIds[3], juce::Colour (0xffB5179E) },
     };
     return bands[juce::jlimit (0, 3, index)];
 }
+
+//==============================================================================
+// Factory preset definition: full plugin state for one preset.
+struct QEQFactoryPreset
+{
+    const char* name;
+    float freq[4];
+    float gain[4];
+    float q[4];
+    int   shape[4];
+    float heat;
+    float tilt;
+    float output;
+};
 
 //==============================================================================
 // Pro-Q style interactive display: log-frequency grid, real-time spectrum
@@ -79,6 +103,11 @@ private:
     float getBandFreq (int band) const;
     float getBandGain (int band) const;
     void setParamValue (const char* paramId, float value);
+    void setChoiceParam (const char* paramId, int choiceIndex);
+    void setBoolParam (const char* paramId, bool value);
+
+    // Right-click popup menu for a band handle.
+    void showBandMenu (int band, juce::Point<int> screenPos);
 
     // Spectrum analyzer: pull FIFO samples into our ring, run FFT, smooth.
     void updateSpectrum();
@@ -121,7 +150,8 @@ struct HeatLookAndFeel : public juce::LookAndFeel_V4
 };
 
 //==============================================================================
-class QEQEditor : public juce::AudioProcessorEditor
+class QEQEditor : public juce::AudioProcessorEditor,
+                  private juce::AudioProcessorValueTreeState::Listener
 {
 public:
     explicit QEQEditor (QEQProcessor&);
@@ -131,13 +161,44 @@ public:
     void resized() override;
 
 private:
-    using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
+    using SliderAttachment   = juce::AudioProcessorValueTreeState::SliderAttachment;
+    using ComboBoxAttachment = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
+    using ButtonAttachment   = juce::AudioProcessorValueTreeState::ButtonAttachment;
 
-    // Re-point the bottom-panel sliders at the given band's parameters.
+    // Re-point the bottom-panel controls at the given band's parameters.
     void selectBand (int index);
+
+    // Refresh shape-dependent UI (gain slider enable, band title).
+    void updateBandDependentUI();
+
+    // APVTS listener: watch the 4 shape params.
+    void parameterChanged (const juce::String& parameterID, float newValue) override;
 
     static void styleHorizontalSlider (juce::Slider& s, const juce::String& suffix,
                                        const juce::Colour& accent);
+    static void styleComboBox (juce::ComboBox& box);
+    static void styleToggleButton (juce::TextButton& btn,
+                                   const juce::Colour& onColour);
+
+    // ---- preset system ----
+    juce::File getQEQDataDir() const;
+    juce::File getPresetDir() const;
+    juce::File getFavoritesFile() const;
+    void scanUserPresets();
+    void loadFavorites();
+    void saveFavorites();
+    bool isFavorite (const juce::String& name) const;
+    void refreshPresetMenu();
+    void onPresetChosen();
+    void applyPresetByName (const juce::String& name);
+    void applyFactoryPreset (const QEQFactoryPreset& preset);
+    void applyUserPreset (const juce::String& name);
+    void promptSavePreset();
+    void goToPreset (int direction);   // -1 = prev, +1 = next
+    void updateHeartButton();
+    void setFloatParam (const char* paramId, float value);
+
+    static const QEQFactoryPreset factoryPresets[8];
 
     QEQProcessor& processor;
 
@@ -145,15 +206,25 @@ private:
 
     // Top bar.
     juce::Label titleLabel, brandLabel;
+    juce::ComboBox presetBox;
+    juce::TextButton prevPresetBtn, nextPresetBtn, savePresetBtn, heartBtn;
+    juce::String currentPresetName;
+    juce::StringArray favoriteNames;
+    juce::StringArray userPresetNames;    // file base names, no extension
+    juce::StringArray presetMenuLookup;   // parallel to combo item IDs
     juce::Label outputCaption;
     juce::Slider outputKnob;
     std::unique_ptr<SliderAttachment> outputAttachment;
 
     // Bottom-left: selected band.
     juce::Label bandTitleLabel;
-    juce::Label freqCaption, gainCaption, qCaption;
+    juce::Label freqCaption, gainCaption, qCaption, shapeCaption;
     juce::Slider freqSlider, gainSlider, qSlider;
     std::unique_ptr<SliderAttachment> freqAttachment, gainAttachment, qAttachment;
+    juce::ComboBox shapeBox;
+    std::unique_ptr<ComboBoxAttachment> shapeAttachment;
+    juce::TextButton soloBtn, bypassBtn;
+    std::unique_ptr<ButtonAttachment> soloAttachment, bypassAttachment;
     int selectedBand = -1;
 
     // Bottom-right: signature section.
