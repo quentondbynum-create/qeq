@@ -27,6 +27,8 @@ juce_add_plugin(QEQ
     IS_SYNTH FALSE
 )
 
+juce_add_binary_data(QEQAssets SOURCES Source/Assets/headroom-logo.png)
+
 target_sources(QEQ PRIVATE
     Source/PluginProcessor.cpp
     Source/PluginEditor.cpp
@@ -39,6 +41,7 @@ target_compile_definitions(QEQ PRIVATE
 )
 
 target_link_libraries(QEQ PRIVATE
+    QEQAssets
     juce::juce_audio_utils
     juce::juce_audio_processors
     juce::juce_audio_formats
